@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type } from '@google/genai';
 
@@ -9,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const PORT = 3000;
   const isProd = process.env.NODE_ENV === 'production';
 
   app.use(express.json({ limit: '10mb' }));
@@ -283,16 +284,39 @@ ${eventsSummary || ''}
   });
 
   // Setup Vite middleware in dev or express static in prod
-  if (!isProd) {
+  const distDir = path.resolve(__dirname, 'dist');
+  const distIndexHtml = path.resolve(distDir, 'index.html');
+  const hasDist = fs.existsSync(distIndexHtml);
+
+  if (isProd && hasDist) {
+    app.use(express.static(distDir));
+    app.use((_req, res) => {
+      res.sendFile(distIndexHtml);
+    });
+  } else {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
+      root: __dirname,
+      configFile: path.resolve(__dirname, 'vite.config.ts'),
     });
     app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+    app.use(async (req, res, next) => {
+      if (req.method !== 'GET') {
+        return next();
+      }
+      try {
+        const url = req.originalUrl;
+        const indexHtmlPath = path.resolve(__dirname, 'index.html');
+        if (!fs.existsSync(indexHtmlPath)) {
+          return next();
+        }
+        let template = fs.readFileSync(indexHtmlPath, 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e) {
+        next(e);
+      }
     });
   }
 

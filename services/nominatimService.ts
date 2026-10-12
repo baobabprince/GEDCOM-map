@@ -5,12 +5,26 @@
  * @returns A promise that resolves to a geocoded location object or null if not found.
  */
 export const geocodeSinglePlace = async (placeName: string): Promise<{ name: string; lat: number; lon: number } | null> => {
+  // 1. Try Photon (Komoot/OSM) - fast, CORS-enabled, reliable for static hosting like GitHub Pages
+  try {
+    const photonRes = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(placeName)}&limit=1`);
+    if (photonRes.ok) {
+      const photonData = await photonRes.json();
+      if (photonData?.features?.[0]?.geometry?.coordinates) {
+        const [lon, lat] = photonData.features[0].geometry.coordinates;
+        return { name: placeName, lat: Number(lat), lon: Number(lon) };
+      }
+    }
+  } catch {
+    // Continue to Nominatim fallback
+  }
+
+  // 2. Fallback to OpenStreetMap Nominatim
   try {
     const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(placeName)}&format=json&limit=1`, {
-        headers: {
-            // Nominatim API usage policy requires a custom User-Agent.
-            'User-Agent': 'GEDCOM-Map-Visualizer/1.0 (https://web.dev/)'
-        }
+      headers: {
+        'User-Agent': 'GEDCOM-Map-Visualizer/1.0 (https://web.dev/)'
+      }
     });
 
     if (!response.ok) {
@@ -23,7 +37,7 @@ export const geocodeSinglePlace = async (placeName: string): Promise<{ name: str
       const result = data[0];
       const lat = parseFloat(result.lat);
       const lon = parseFloat(result.lon);
-      return { name: placeName, lat: lat, lon: lon };
+      return { name: placeName, lat, lon };
     }
     return null;
   } catch (error) {
