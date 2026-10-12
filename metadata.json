@@ -1,0 +1,7 @@
+{
+  "name": "GEDCOM Map Visualizer",
+  "description": "Upload a GEDCOM file to parse all geographical locations mentioned within it and visualize them on an interactive world map. The app uses AI to geocode the place names.",
+  "requestFramePermissions": [],
+  "prompt": "",
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

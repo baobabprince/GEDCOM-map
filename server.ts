@@ -1,0 +1,307 @@
+import express from 'express';
+import { createServer as createViteServer } from 'vite';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { GoogleGenAI, Type } from '@google/genai';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+async function startServer() {
+  const app = express();
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const isProd = process.env.NODE_ENV === 'production';
+
+  app.use(express.json({ limit: '10mb' }));
+
+  // Initialize Gemini AI client on the server side
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
+
+  const geocodingSchema = {
+    type: Type.ARRAY,
+    items: {
+      type: Type.OBJECT,
+      properties: {
+        name: {
+          type: Type.STRING,
+          description: 'The exact place name string from the input list.',
+        },
+        lat: {
+          type: Type.NUMBER,
+          description: 'Geographic latitude as a decimal number.',
+        },
+        lon: {
+          type: Type.NUMBER,
+          description: 'Geographic longitude as a decimal number.',
+        },
+      },
+      required: ['name', 'lat', 'lon'],
+      description: 'A geocoded location with latitude and longitude.',
+    },
+    description: 'A list of geocoded locations.',
+  };
+
+  // Open Geocoding helper (Photon OSM + Open-Meteo) requiring no API key
+  async function openGeocodePlace(placeName: string): Promise<{ name: string; lat: number; lon: number } | null> {
+    const trimmed = placeName.trim();
+    if (!trimmed) return null;
+
+    // 1. Try Photon (Komoot OSM Geocoder)
+    try {
+      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&limit=1`;
+      const res = await fetch(photonUrl, {
+        headers: {
+          'User-Agent': 'GEDCOM-Map-Visualizer/1.0 (Family History Research App)',
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.features?.length > 0) {
+          const [lon, lat] = data.features[0].geometry.coordinates;
+          if (typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)) {
+            return { name: placeName, lat, lon };
+          }
+        }
+      }
+    } catch {
+      // Continue to next provider
+    }
+
+    // 2. Try Open-Meteo with parsed segments
+    try {
+      const parts = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+      const candidates = [
+        trimmed,
+        parts[0],
+        parts.length > 2 ? `${parts[0]}, ${parts[parts.length - 1]}` : null,
+        parts[parts.length - 1],
+      ].filter((s): s is string => Boolean(s));
+
+      for (const query of candidates) {
+        const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.results?.length > 0) {
+            const r = data.results[0];
+            if (typeof r.latitude === 'number' && typeof r.longitude === 'number' && !isNaN(r.latitude) && !isNaN(r.longitude)) {
+              return { name: placeName, lat: r.latitude, lon: r.longitude };
+            }
+          }
+        }
+      }
+    } catch {
+      // Continue
+    }
+
+    return null;
+  }
+
+  // POST /api/geocode - Batch geocoding: Open Services first, Gemini as fallback
+  app.post('/api/geocode', async (req, res) => {
+    try {
+      const { places } = req.body;
+      if (!Array.isArray(places) || places.length === 0) {
+        return res.json({ results: [] });
+      }
+
+      const resultsMap = new Map<string, { name: string; lat: number; lon: number }>();
+      const unresolved: string[] = [];
+
+      // Run open geocoding with controlled concurrency (chunks of 6)
+      const chunkSize = 6;
+      for (let i = 0; i < places.length; i += chunkSize) {
+        const chunk = places.slice(i, i + chunkSize);
+        const resolvedChunk = await Promise.all(chunk.map(p => openGeocodePlace(p)));
+        for (let j = 0; j < chunk.length; j++) {
+          const r = resolvedChunk[j];
+          if (r) {
+            resultsMap.set(chunk[j], r);
+          } else {
+            unresolved.push(chunk[j]);
+          }
+        }
+      }
+
+      // If any unresolved places remain and an API key is available, use Gemini as fallback
+      if (unresolved.length > 0 && apiKey) {
+        try {
+          const prompt = `
+Geocode the following list of place names for a genealogical application. For each place name, provide the latitude and longitude.
+
+Rules:
+1. The 'name' property in your JSON output MUST match the original string provided in the list below.
+2. Only return locations you are confident about.
+3. If multiple locations exist for a name, provide the most prominent historical or likely location for genealogy records.
+4. Ensure latitude and longitude are valid decimal numbers.
+
+Places to geocode:
+${unresolved.join('\n')}
+          `.trim();
+
+          const response = await ai.models.generateContent({
+            model: 'gemini-3.1-flash-lite',
+            contents: prompt,
+            config: {
+              responseMimeType: 'application/json',
+              responseSchema: geocodingSchema,
+            },
+          });
+
+          const jsonText = response.text?.trim();
+          if (jsonText) {
+            const parsed = JSON.parse(jsonText);
+            if (Array.isArray(parsed)) {
+              for (const item of parsed) {
+                if (
+                  item &&
+                  typeof item.name === 'string' &&
+                  typeof item.lat === 'number' &&
+                  !isNaN(item.lat) &&
+                  typeof item.lon === 'number' &&
+                  !isNaN(item.lon)
+                ) {
+                  resultsMap.set(item.name, item);
+                }
+              }
+            }
+          }
+        } catch (geminiErr) {
+          console.warn('Gemini fallback geocoding failed (safely handled):', geminiErr);
+        }
+      }
+
+      return res.json({ results: Array.from(resultsMap.values()) });
+    } catch (error: any) {
+      console.error('Server geocode error:', error);
+      return res.json({ results: [], error: error.message || 'Geocoding failed' });
+    }
+  });
+
+  // POST /api/historical-context - Generate rich Hebrew historical overview
+  app.post('/api/historical-context', async (req, res) => {
+    try {
+      const { name, type, eventsSummary } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: 'Missing name' });
+      }
+
+      if (!apiKey) {
+        return res.status(500).json({ error: 'GEMINI_API_KEY is not set on server' });
+      }
+
+      const prompt = `
+אתה גנאולוג והיסטוריון מומחה העוסק בהנגשת הקשרים היסטוריים עשירים למשפחות ואילנות יוחסין.
+
+אנא צור סקירה היסטורית מרתקת, מעמיקה ומבוססת עובדות בעברית עבור ${type === 'person' ? 'האדם הבא' : 'המיקום הבא'}:
+שם: ${name}
+אירועים וציר זמן:
+${eventsSummary || ''}
+
+הנחיות לכתיבה:
+1. כתוב בעברית קולחת, מכובדת ומרתקת.
+2. תאר את הרקע ההיסטורי של המקומות והשנים שבהם האדם חי או שבהם התרחשו האירועים (למשל: אירועים היסטוריים מרכזיים באותו עשור, מלחמות, תהליכים חברתיים, הגירות, מהפכות תעשייתיות או אירועים מקומיים).
+3. עזור למשתמש לדמיין את חיי היומיום באותה תקופה ובאותם מקומות (איך נראו המגורים, התחבורה, מקורות הפרנסה, או קשיי היום-יום).
+4. ארגן את התשובה בצורה יפהפייה עם כותרות, נקודות בולטות (bullet points) ופסקאות קריאות בפורמט Markdown.
+5. שמור על אובייקטיביות היסטורית לצד חיבור רגשי ומרגש שמתאים למחקר שורשים משפחתי.
+
+אנא התחל את הסקירה ישירות בכותרת מעוצבת ומתאימה, ללא הקדמות מטא-טקסטואליות (כמו "בוודאי, הנה הסקירה...").
+      `.trim();
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents: prompt,
+      });
+
+      return res.json({ text: response.text || 'לא התקבל מידע היסטורי.' });
+    } catch (error: any) {
+      console.error('Server historical-context error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to generate context' });
+    }
+  });
+
+  // POST /api/chat-context - Interactive chat regarding genealogical history
+  app.post('/api/chat-context', async (req, res) => {
+    try {
+      const { name, type, eventsSummary, history, latestQuestion } = req.body;
+      if (!latestQuestion) {
+        return res.status(400).json({ error: 'Missing question' });
+      }
+
+      if (!apiKey) {
+        return res.status(500).json({ error: 'GEMINI_API_KEY is not set on server' });
+      }
+
+      const contents: any[] = [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `אני חוקר את ההיסטוריה המשפחתית שלי. הנה פרטי ${type === 'person' ? 'האדם' : 'המיקום'} שאני חוקר:
+שם: ${name}
+ציר זמן ואירועים:
+${eventsSummary || ''}
+
+עזור לי להבין את הרקע ההיסטורי ואת חיי היומיום. אנא ענה תמיד בעברית קריאה ומקצועית.`,
+            },
+          ],
+        },
+      ];
+
+      if (Array.isArray(history)) {
+        for (const turn of history) {
+          contents.push({
+            role: turn.role === 'model' ? 'model' : 'user',
+            parts: [{ text: turn.text || '' }],
+          });
+        }
+      }
+
+      contents.push({
+        role: 'user',
+        parts: [{ text: latestQuestion }],
+      });
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-lite',
+        contents,
+      });
+
+      return res.json({ text: response.text || 'לא התקבל מענה.' });
+    } catch (error: any) {
+      console.error('Server chat-context error:', error);
+      return res.status(500).json({ error: error.message || 'Failed in chat context' });
+    }
+  });
+
+  // Setup Vite middleware in dev or express static in prod
+  if (!isProd) {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    app.use(express.static(path.resolve(__dirname, 'dist')));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+    });
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server listening on http://0.0.0.0:${PORT}`);
+  });
+}
+
+startServer().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
