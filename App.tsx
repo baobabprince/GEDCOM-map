@@ -5,6 +5,7 @@ import { Map as LeafletMap, LatLng } from 'leaflet';
 import { AppState, type Place, type Person, ViewMode, type ProgressState, FilterState, EventInfo } from './types.ts';
 import { parseGedcom } from './services/gedcomParser.ts';
 import { geocode, saveGeocodeToCache, clearGeocodeCache, getGeocodeCache } from './services/geocodingService.ts';
+import { findKnownLocation } from './services/knownLocations.ts';
 import { generateGedcomWithCoords } from './services/gedcomGenerator.ts';
 import { getYearFromDate, formatDate, calculateAgeAtEvent } from './services/utils.ts';
 import FileUpload from './components/FileUpload.tsx';
@@ -769,10 +770,10 @@ export default function App() {
         return;
       }
 
-      // 1. Instantly load any coordinates that already exist in our local cache
+      // 1. Instantly load any coordinates that already exist in our local cache or instant dictionary
       const cache = getGeocodeCache();
       const initialPlaces: Place[] = rawPlaceNames.map(name => {
-        const coords = cache[name];
+        const coords = cache[name] || findKnownLocation(name);
         return {
           name,
           events: placesWithEvents.get(name) || [],
@@ -789,23 +790,30 @@ export default function App() {
       }
 
       // 2. Identify if we have any uncached places we need to resolve
-      const uncachedPlaces = rawPlaceNames.filter(name => !cache[name]);
+      const uncachedPlaces = rawPlaceNames.filter(name => !cache[name] && !findKnownLocation(name));
       if (uncachedPlaces.length > 0) {
         setIsGeocoding(true);
-        // Start background geocoding progressively
+        // Start high-speed background geocoding progressively
         geocode(rawPlaceNames, (progressUpdate) => {
             if (taskId !== geocodeTaskIdRef.current) return;
             setProgress(progressUpdate);
         }, (batchResults) => {
-            if (taskId !== geocodeTaskIdRef.current) return;
+            if (taskId !== geocodeTaskIdRef.current || !batchResults.length) return;
+            const batchMap = new Map<string, { lat: number; lon: number }>();
+            for (const r of batchResults) {
+              batchMap.set(r.name, r);
+            }
             setPlaces(prevPlaces => {
-                return prevPlaces.map(place => {
-                    const found = batchResults.find(r => r.name === place.name);
-                    if (found) {
+                let changed = false;
+                const updated = prevPlaces.map(place => {
+                    const found = batchMap.get(place.name);
+                    if (found && (place.lat !== found.lat || place.lon !== found.lon)) {
+                        changed = true;
                         return { ...place, lat: found.lat, lon: found.lon };
                     }
                     return place;
                 });
+                return changed ? updated : prevPlaces;
             });
             setHasCache(true);
         }).then(() => {

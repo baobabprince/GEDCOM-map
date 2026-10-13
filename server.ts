@@ -51,24 +51,50 @@ async function startServer() {
   };
 
   // Open Geocoding helper (Photon OSM + Open-Meteo) requiring no API key
+  // In-memory server-side geocoding cache
+  const serverGeocodeCache = new Map<string, { name: string; lat: number; lon: number }>();
+
+  // Fetch with strict timeout helper
+  async function fetchWithTimeout(url: string, options: any = {}, timeoutMs = 2500): Promise<Response> {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(id);
+      return response;
+    } catch (err) {
+      clearTimeout(id);
+      throw err;
+    }
+  }
+
+  // Open Geocoding helper (Photon OSM + Open-Meteo) requiring no API key
   async function openGeocodePlace(placeName: string): Promise<{ name: string; lat: number; lon: number } | null> {
     const trimmed = placeName.trim();
     if (!trimmed) return null;
 
+    if (serverGeocodeCache.has(trimmed)) {
+      return serverGeocodeCache.get(trimmed)!;
+    }
+
     // 1. Try Photon (Komoot OSM Geocoder)
     try {
       const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(trimmed)}&limit=1`;
-      const res = await fetch(photonUrl, {
+      const res = await fetchWithTimeout(photonUrl, {
         headers: {
-          'User-Agent': 'GEDCOM-Map-Visualizer/1.0 (Family History Research App)',
+          'User-Agent': 'GEDCOM-Map-Visualizer/2.0 (Family History Research App)',
+          'Accept': 'application/json',
         },
-      });
+      }, 2500);
+
       if (res.ok) {
         const data = await res.json();
         if (data?.features?.length > 0) {
           const [lon, lat] = data.features[0].geometry.coordinates;
           if (typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)) {
-            return { name: placeName, lat, lon };
+            const result = { name: placeName, lat: Number(lat.toFixed(5)), lon: Number(lon.toFixed(5)) };
+            serverGeocodeCache.set(trimmed, result);
+            return result;
           }
         }
       }
@@ -81,20 +107,22 @@ async function startServer() {
       const parts = trimmed.split(',').map(s => s.trim()).filter(Boolean);
       const candidates = [
         trimmed,
-        parts[0],
+        parts.length > 1 ? parts.slice(1).join(', ') : null,
         parts.length > 2 ? `${parts[0]}, ${parts[parts.length - 1]}` : null,
-        parts[parts.length - 1],
+        parts[0],
       ].filter((s): s is string => Boolean(s));
 
       for (const query of candidates) {
         const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
-        const res = await fetch(url);
+        const res = await fetchWithTimeout(url, {}, 2500);
         if (res.ok) {
           const data = await res.json();
           if (data?.results?.length > 0) {
             const r = data.results[0];
             if (typeof r.latitude === 'number' && typeof r.longitude === 'number' && !isNaN(r.latitude) && !isNaN(r.longitude)) {
-              return { name: placeName, lat: r.latitude, lon: r.longitude };
+              const result = { name: placeName, lat: Number(r.latitude.toFixed(5)), lon: Number(r.longitude.toFixed(5)) };
+              serverGeocodeCache.set(trimmed, result);
+              return result;
             }
           }
         }
@@ -115,21 +143,38 @@ async function startServer() {
       }
 
       const resultsMap = new Map<string, { name: string; lat: number; lon: number }>();
+      const needLookup: string[] = [];
+
+      // Check server cache first
+      for (const p of places) {
+        const trimmed = String(p).trim();
+        if (serverGeocodeCache.has(trimmed)) {
+          resultsMap.set(p, serverGeocodeCache.get(trimmed)!);
+        } else {
+          needLookup.push(p);
+        }
+      }
+
+      // Run open geocoding with controlled worker pool (concurrency 10)
+      const concurrency = 10;
+      let nextIndex = 0;
       const unresolved: string[] = [];
 
-      // Run open geocoding with controlled concurrency (chunks of 6)
-      const chunkSize = 6;
-      for (let i = 0; i < places.length; i += chunkSize) {
-        const chunk = places.slice(i, i + chunkSize);
-        const resolvedChunk = await Promise.all(chunk.map(p => openGeocodePlace(p)));
-        for (let j = 0; j < chunk.length; j++) {
-          const r = resolvedChunk[j];
-          if (r) {
-            resultsMap.set(chunk[j], r);
+      const worker = async () => {
+        while (nextIndex < needLookup.length) {
+          const idx = nextIndex++;
+          const place = needLookup[idx];
+          const result = await openGeocodePlace(place);
+          if (result) {
+            resultsMap.set(place, result);
           } else {
-            unresolved.push(chunk[j]);
+            unresolved.push(place);
           }
         }
+      };
+
+      if (needLookup.length > 0) {
+        await Promise.all(Array.from({ length: Math.min(concurrency, needLookup.length) }, () => worker()));
       }
 
       // If any unresolved places remain and an API key is available, use Gemini as fallback
@@ -171,6 +216,7 @@ ${unresolved.join('\n')}
                   !isNaN(item.lon)
                 ) {
                   resultsMap.set(item.name, item);
+                  serverGeocodeCache.set(item.name.trim(), item);
                 }
               }
             }
