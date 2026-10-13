@@ -2,13 +2,42 @@
  * Client-side Gemini service communicating securely with server-side proxy routes.
  */
 
+let staticHostDetected: boolean | null = null;
+
 /**
  * Checks if the app is currently running in a static hosting environment
- * such as GitHub Pages (*.github.io) where server-side /api routes do not exist.
+ * such as GitHub Pages (*.github.io, custom domains, file:, etc.) where server-side /api routes do not exist.
  */
 export const isStaticHost = (): boolean => {
+  if (staticHostDetected !== null) return staticHostDetected;
   if (typeof window === 'undefined') return false;
-  return window.location.hostname.endsWith('github.io') || window.location.protocol === 'file:';
+
+  const hostname = window.location.hostname.toLowerCase();
+  const protocol = window.location.protocol;
+  const port = window.location.port;
+
+  // Known static host signatures
+  if (
+    hostname.endsWith('github.io') ||
+    hostname.includes('github.io') ||
+    hostname.endsWith('pages.dev') ||
+    hostname.endsWith('netlify.app') ||
+    hostname.endsWith('vercel.app') ||
+    protocol === 'file:' ||
+    port === '4173'
+  ) {
+    staticHostDetected = true;
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Mark this session as a static host (e.g. after receiving a 404 on an API route)
+ */
+export const markAsStaticHost = () => {
+  staticHostDetected = true;
 };
 
 /**
@@ -33,8 +62,13 @@ export const geocodePlaces = async (
       body: JSON.stringify({ places: placeNames }),
     });
 
+    if (response.status === 404) {
+      // Backend does not exist; mark environment as static to prevent future calls
+      markAsStaticHost();
+      return [];
+    }
+
     if (!response.ok) {
-      console.warn('Server geocoding API returned non-OK status:', response.status);
       return [];
     }
 
@@ -43,8 +77,8 @@ export const geocodePlaces = async (
       return data.results;
     }
     return [];
-  } catch (error) {
-    console.warn('Error fetching geocoding from server API:', error);
+  } catch {
+    markAsStaticHost();
     return [];
   }
 };
@@ -68,6 +102,11 @@ export const generateHistoricalContext = async (
     },
     body: JSON.stringify({ name, type, eventsSummary }),
   });
+
+  if (response.status === 404) {
+    markAsStaticHost();
+    throw new Error('שירותי ההקשר ההיסטורי של Gemini דורשים שרת רקע פעיל ואינם זמינים באירוח סטטי של GitHub Pages. כל שאר יכולות המפה, הקואורדינטות והתובנות פועלות במלואן באופן עצמאי בדפדפן.');
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -99,6 +138,11 @@ export const chatHistoricalContext = async (
     },
     body: JSON.stringify({ name, type, eventsSummary, history, latestQuestion }),
   });
+
+  if (response.status === 404) {
+    markAsStaticHost();
+    throw new Error('שירותי Gemini דורשים שרת פעיל ואינם זמינים באירוח סטטי של GitHub Pages.');
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));

@@ -56,16 +56,25 @@
 
 ## 🌐 פריסה ל-GitHub Pages (Deployment)
 
-הפרויקט כולל תהליך עבודה אוטומטי (`.github/workflows/deploy.yml`) המבצע Build ופריסה אוטומטית בכל Push לענף הראשי (`main`):
+הפרויקט מוגדר לפריסה חלקה ועצמאית בשני אופנים (Dual-Deploy) באמצעות Workflow מובנה (`.github/workflows/deploy.yml`):
 
-1. בהגדרות המאגר ב-GitHub: עברו אל **Settings** -> **Pages**.
-2. תחת **Build and deployment** בחרו ב-Source: **GitHub Actions**.
-3. בכל פעם שיועלה קוד חדש ל-`main`, האתר יתעדכן וייפרס אוטומטית.
+### שיטה מומלצת 1: פריסה אוטומטית באמצעות GitHub Actions
+1. היכנסו למאגר שלכם ב-GitHub ועברו אל **Settings** ➔ **Pages** (בתפריט השמאלי).
+2. תחת **Build and deployment** ➔ **Source**, בחרו: **GitHub Actions** (במקום "Deploy from a branch").
+3. עברו ללשונית **Actions** במאגר — תוכלו לראות את תהליך ה-Build וה-Deploy רץ בהצלחה.
+4. בסיום הריצה, האתר יהיה זמין בכתובת: `https://<username>.github.io/<repo-name>/`.
 
-ניתן גם לפרוס ידנית באמצעות:
-```bash
-npm run deploy
-```
+### שיטה 2: פריסה באמצעות ענף `gh-pages` (Deploy from a branch)
+ה-Workflow מייצר ודוחף אוטומטית את קבצי ה-Build המוכנים גם לענף ייעודי בשם `gh-pages`:
+1. ב-**Settings** ➔ **Pages**, אם Source מוגדר כ-**Deploy from a branch**:
+2. תחת **Branch**, בחרו בענף **`gh-pages`** (ולא `main`) ותיקייה **/ (root)**, ולחצו **Save**.
+
+### 💡 פתרון בעיית 404 ב-GitHub Pages:
+- **שגיאת 404 על קבצי Assets / Script:** נגרמת כאשר המאגר מוגדר להציג את ענף `main` במקום `gh-pages` או GitHub Actions, או עקב גישה ללא לוכסן בסוף הכתובת (`/`). המערכת כוללת כעת תיקון אוטומטי מובנה ב-`index.html` וב-`vite.config.ts` המזהה את שם המאגר ומונע שגיאות אלו לחלוטין.
+- ניתן לפרוס ידנית בכל עת מהמחשב על ידי הרצת הפקודה:
+  ```bash
+  npm run deploy
+  ```
 
 ---
 
