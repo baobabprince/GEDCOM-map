@@ -3,14 +3,24 @@
  */
 
 /**
+ * Checks if the app is currently running in a static hosting environment
+ * such as GitHub Pages (*.github.io) where server-side /api routes do not exist.
+ */
+export const isStaticHost = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return window.location.hostname.endsWith('github.io') || window.location.protocol === 'file:';
+};
+
+/**
  * Geocodes a list of place names using the server-side Gemini API.
+ * In a static host (like GitHub Pages), skips the server request to avoid 404 errors.
  * @param placeNames An array of strings representing geographical locations.
  * @returns A promise that resolves to an array of geocoded location objects.
  */
 export const geocodePlaces = async (
   placeNames: string[]
 ): Promise<{ name: string; lat: number; lon: number }[]> => {
-  if (placeNames.length === 0) {
+  if (placeNames.length === 0 || isStaticHost()) {
     return [];
   }
 
@@ -47,6 +57,10 @@ export const generateHistoricalContext = async (
   type: 'person' | 'place',
   eventsSummary: string
 ): Promise<string> => {
+  if (isStaticHost()) {
+    throw new Error('שירותי ההקשר ההיסטורי של Gemini דורשים שרת רקע פעיל ואינם זמינים באירוח סטטי של GitHub Pages. כל שאר יכולות המפה, הקואורדינטות והתובנות פועלות במלואן באופן עצמאי בדפדפן.');
+  }
+
   const response = await fetch('/api/historical-context', {
     method: 'POST',
     headers: {
@@ -74,6 +88,10 @@ export const chatHistoricalContext = async (
   history: { role: 'user' | 'model'; text: string }[],
   latestQuestion: string
 ): Promise<string> => {
+  if (isStaticHost()) {
+    throw new Error('שירותי Gemini דורשים שרת פעיל ואינם זמינים באירוח סטטי של GitHub Pages.');
+  }
+
   const response = await fetch('/api/chat-context', {
     method: 'POST',
     headers: {

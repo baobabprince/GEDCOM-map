@@ -1,5 +1,5 @@
 import { geocodeSinglePlace } from './nominatimService.ts';
-import { geocodePlaces as geocodeWithServer } from './geminiService.ts';
+import { geocodePlaces as geocodeWithServer, isStaticHost } from './geminiService.ts';
 import { KNOWN_LOCATIONS_DATABASE, findKnownLocation } from './knownLocations.ts';
 import type { ProgressState } from '../types.ts';
 
@@ -135,7 +135,7 @@ export const geocode = async (
   const remainingToResolve: string[] = [...uncachedNames];
 
   // Step 2: Try Server API in fast chunks of 25 (if not in a purely static environment like GitHub Pages)
-  let isServerWorking = true;
+  let isServerWorking = !isStaticHost();
   const SERVER_CHUNK_SIZE = 25;
 
   for (let i = 0; i < remainingToResolve.length; i += SERVER_CHUNK_SIZE) {
