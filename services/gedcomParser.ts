@@ -17,6 +17,19 @@ const eventTags: { [key: string]: string } = {
     'CENS': 'Census',
     'EVEN': 'Event',
     'BURI': 'Burial',
+    'OCCU': 'Occupation',
+    'EDUC': 'Education',
+    'NATU': 'Naturalization',
+    'GRAD': 'Graduation',
+    'RETI': 'Retirement',
+    'PROB': 'Probate',
+    'WILL': 'Will',
+    'BARM': 'Bar Mitzvah',
+    'BASM': 'Bat Mitzvah',
+    'BLES': 'Blessing',
+    'CONF': 'Confirmation',
+    'FCOM': 'First Communion',
+    'ORDN': 'Ordination',
 };
 
 interface Family {

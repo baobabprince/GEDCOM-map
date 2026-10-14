@@ -238,10 +238,10 @@ ${unresolved.join('\n')}
     }
   });
 
-  // POST /api/historical-context - Generate rich Hebrew historical overview
+  // POST /api/historical-context - Generate rich historical overview in Hebrew or English
   app.post('/api/historical-context', async (req, res) => {
     try {
-      const { name, type, eventsSummary } = req.body;
+      const { name, type, eventsSummary, lang = 'he' } = req.body;
       if (!name) {
         return res.status(400).json({ error: 'Missing name' });
       }
@@ -250,7 +250,26 @@ ${unresolved.join('\n')}
         return res.status(500).json({ error: 'GEMINI_API_KEY is not set on server' });
       }
 
-      const prompt = `
+      const isEn = lang === 'en';
+      const prompt = isEn
+        ? `
+You are an expert genealogist and historian specializing in bringing rich historical context to family trees.
+
+Please create an engaging, in-depth, and fact-based historical overview in English for the following ${type === 'person' ? 'person' : 'location'}:
+Name: ${name}
+Timeline & Events:
+${eventsSummary || ''}
+
+Writing guidelines:
+1. Write in clear, engaging, and respectful English.
+2. Describe the historical background of the places and years in which the person lived or where the events occurred (e.g., major historical events in that decade, wars, social changes, migrations, industrial developments, or local history).
+3. Help the reader visualize everyday life in that era and place (housing, transport, livelihoods, and daily challenges).
+4. Organize the response clearly with Markdown headings, bullet points, and readable paragraphs.
+5. Maintain historical accuracy alongside a warm narrative suitable for family roots research.
+
+Start directly with an appropriate Markdown heading without conversational meta-introductions.
+        `.trim()
+        : `
 אתה גנאולוג והיסטוריון מומחה העוסק בהנגשת הקשרים היסטוריים עשירים למשפחות ואילנות יוחסין.
 
 אנא צור סקירה היסטורית מרתקת, מעמיקה ומבוססת עובדות בעברית עבור ${type === 'person' ? 'האדם הבא' : 'המיקום הבא'}:
@@ -266,14 +285,14 @@ ${eventsSummary || ''}
 5. שמור על אובייקטיביות היסטורית לצד חיבור רגשי ומרגש שמתאים למחקר שורשים משפחתי.
 
 אנא התחל את הסקירה ישירות בכותרת מעוצבת ומתאימה, ללא הקדמות מטא-טקסטואליות (כמו "בוודאי, הנה הסקירה...").
-      `.trim();
+        `.trim();
 
       const response = await ai.models.generateContent({
         model: 'gemini-3.1-flash-lite',
         contents: prompt,
       });
 
-      return res.json({ text: response.text || 'לא התקבל מידע היסטורי.' });
+      return res.json({ text: response.text || (isEn ? 'No historical context received.' : 'לא התקבל מידע היסטורי.') });
     } catch (error: any) {
       console.error('Server historical-context error:', error);
       return res.status(500).json({ error: error.message || 'Failed to generate context' });
@@ -283,7 +302,7 @@ ${eventsSummary || ''}
   // POST /api/chat-context - Interactive chat regarding genealogical history
   app.post('/api/chat-context', async (req, res) => {
     try {
-      const { name, type, eventsSummary, history, latestQuestion } = req.body;
+      const { name, type, eventsSummary, history, latestQuestion, lang = 'he' } = req.body;
       if (!latestQuestion) {
         return res.status(400).json({ error: 'Missing question' });
       }
@@ -292,12 +311,20 @@ ${eventsSummary || ''}
         return res.status(500).json({ error: 'GEMINI_API_KEY is not set on server' });
       }
 
+      const isEn = lang === 'en';
       const contents: any[] = [
         {
           role: 'user',
           parts: [
             {
-              text: `אני חוקר את ההיסטוריה המשפחתית שלי. הנה פרטי ${type === 'person' ? 'האדם' : 'המיקום'} שאני חוקר:
+              text: isEn
+                ? `I am researching my family history. Here are the details of the ${type === 'person' ? 'person' : 'location'} I am researching:
+Name: ${name}
+Timeline & Events:
+${eventsSummary || ''}
+
+Help me understand the historical background and daily life. Always respond in clear, professional English.`
+                : `אני חוקר את ההיסטוריה המשפחתית שלי. הנה פרטי ${type === 'person' ? 'האדם' : 'המיקום'} שאני חוקר:
 שם: ${name}
 ציר זמן ואירועים:
 ${eventsSummary || ''}
@@ -327,7 +354,7 @@ ${eventsSummary || ''}
         contents,
       });
 
-      return res.json({ text: response.text || 'לא התקבל מענה.' });
+      return res.json({ text: response.text || (isEn ? 'No response received.' : 'לא התקבל מענה.') });
     } catch (error: any) {
       console.error('Server chat-context error:', error);
       return res.status(500).json({ error: error.message || 'Failed in chat context' });

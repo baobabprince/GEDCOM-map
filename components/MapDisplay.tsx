@@ -2,7 +2,8 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, useMapEvents, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 import type { Place, Person, PersonEvent, EventInfo } from '../types.ts';
-import { formatDate, getYearFromDate, compareEventDates } from '../services/utils.ts';
+import { formatDate, compareEventDates } from '../services/utils.ts';
+import { useLanguage, formatEventType } from '../services/i18n.ts';
 import { MapPin, Crosshair, Layers, Check } from 'lucide-react';
 
 export interface MapDisplayProps {
@@ -89,7 +90,7 @@ export const getGroupedPlaceEvents = (events: EventInfo[]): DisplayGroupedEvent[
         const other = events[matchedIndex];
         result.push({
           id: `marr-${e.personId}-${other.personId}-${i}`,
-          eventType: 'נישואין',
+          eventType: 'Marriage',
           date: e.date || other.date,
           isMarriage: true,
           people: [
@@ -104,7 +105,7 @@ export const getGroupedPlaceEvents = (events: EventInfo[]): DisplayGroupedEvent[
       processedMarriageIndices.add(i);
       result.push({
         id: `marr-${e.personId}-${i}`,
-        eventType: 'נישואין',
+        eventType: 'Marriage',
         date: e.date,
         isMarriage: true,
         people: [{ id: e.personId, name: e.personName }]
@@ -134,6 +135,7 @@ export const getGroupedPlaceEvents = (events: EventInfo[]): DisplayGroupedEvent[
 
 // --- Leaflet Person Path ---
 const LeafletPersonPath: React.FC<{ activePerson: Person | null; places: Place[] }> = ({ activePerson, places }) => {
+  const { lang, t, isRTL } = useLanguage();
   if (!activePerson) return null;
 
   const placeMap = useMemo(() => {
@@ -212,17 +214,17 @@ const LeafletPersonPath: React.FC<{ activePerson: Person | null; places: Place[]
             }}
           >
             <Popup>
-              <div className="text-right p-1 min-w-[200px]" dir="rtl">
+              <div className={`p-1 min-w-[200px] ${isRTL ? 'text-right' : 'text-left'}`} dir={isRTL ? 'rtl' : 'ltr'}>
                 <span className="text-[10px] font-bold text-orange-600 block uppercase tracking-wide">
-                  {isFirst ? '🟢 נקודת התחלה' : isLast ? '🔴 נקודה אחרונה' : `נקודת ציון ${index + 1}`}
+                  {isFirst ? t.startPoint : isLast ? t.endPoint : t.waypoint(index + 1)}
                 </span>
                 <h4 className="font-bold text-sm text-gray-900 mt-0.5">{place.name}</h4>
-                <p className="text-xs text-gray-500 mb-2">אירועים עבור {activePerson.name}</p>
+                <p className="text-xs text-gray-500 mb-2">{t.eventsForPersonPopup(activePerson.name)}</p>
                 <ul className="space-y-1.5 text-xs max-h-48 overflow-y-auto">
                   {events.map((event, i) => (
-                    <li key={i} className="flex justify-between items-center border-b border-gray-100 pb-1">
-                      <span className="font-semibold text-gray-800">{event.eventType}</span>
-                      <span className="text-gray-500 text-[11px]">{formatDate(event.date)}</span>
+                    <li key={i} className="flex justify-between items-center gap-3 border-b border-gray-100 pb-1">
+                      <span className="font-semibold text-gray-800">{formatEventType(event.eventType, lang)}</span>
+                      <span className="text-gray-500 text-[11px]">{formatDate(event.date, lang)}</span>
                     </li>
                   ))}
                 </ul>
@@ -330,39 +332,40 @@ const LeafletMapEvents: React.FC<{
 
 type TileStyle = 'osm' | 'esriTopo' | 'satellite' | 'voyager';
 
-const TILE_LAYERS: Record<TileStyle, { name: string; url: string; attribution: string; maxZoom: number }> = {
-  osm: {
-    name: 'פירוט רחובות (OpenStreetMap)',
-    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19
-  },
-  esriTopo: {
-    name: 'מפה טופוגרפית (Esri Topo)',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, USGS, NOAA',
-    maxZoom: 19
-  },
-  satellite: {
-    name: 'תצלומי לוויין (Esri Imagery)',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Tiles &copy; Esri &mdash; Source: Esri',
-    maxZoom: 19
-  },
-  voyager: {
-    name: 'מפה מעודנת (CARTO Voyager)',
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxZoom: 19
-  }
-};
-
 // ==========================================
 // MAIN MAP DISPLAY CONTAINER
 // ==========================================
 export const MapDisplay: React.FC<MapDisplayProps> = (props) => {
+  const { lang, t, isRTL } = useLanguage();
   const [tileStyle, setTileStyle] = useState<TileStyle>('osm');
   const [showLayerMenu, setShowLayerMenu] = useState<boolean>(false);
+
+  const tileLayers: Record<TileStyle, { name: string; url: string; attribution: string; maxZoom: number }> = useMemo(() => ({
+    osm: {
+      name: t.layerOsm,
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19
+    },
+    esriTopo: {
+      name: t.layerEsriTopo,
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, USGS, NOAA',
+      maxZoom: 19
+    },
+    satellite: {
+      name: t.layerSatellite,
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri',
+      maxZoom: 19
+    },
+    voyager: {
+      name: t.layerVoyager,
+      url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 19
+    }
+  }), [t]);
 
   const {
     places,
@@ -396,40 +399,43 @@ export const MapDisplay: React.FC<MapDisplayProps> = (props) => {
     });
   }, [places]);
 
-  const currentLayer = TILE_LAYERS[tileStyle];
+  const currentLayer = tileLayers[tileStyle];
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-gray-900">
       {/* Top Floating Controls: Map Layer Switcher */}
-      <div className="absolute top-4 left-4 z-[1000] flex items-center space-x-2">
+      <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2">
         <div className="relative">
           <button
             onClick={() => setShowLayerMenu(!showLayerMenu)}
-            className="bg-gray-900/90 backdrop-blur-md border border-gray-700/80 px-3 py-2 rounded-2xl shadow-xl hover:bg-gray-800 text-gray-200 transition-colors flex items-center space-x-2 space-x-reverse"
-            title="שכבות וסגנון מפה"
+            className="bg-gray-900/90 backdrop-blur-md border border-gray-700/80 px-3 py-2 rounded-2xl shadow-xl hover:bg-gray-800 text-gray-200 transition-colors flex items-center gap-2 cursor-pointer"
+            title={t.mapLayersButtonTitle}
           >
             <Layers className="h-4 w-4 text-indigo-400" />
             <span className="text-xs font-semibold">{currentLayer.name.split('(')[0].trim()}</span>
           </button>
 
           {showLayerMenu && (
-            <div className="absolute top-11 left-0 bg-gray-900/95 border border-gray-700/90 backdrop-blur-xl rounded-2xl shadow-2xl p-2 min-w-[220px] z-[1010] text-xs space-y-1" dir="rtl">
-              <div className="text-[11px] font-bold text-gray-400 px-2.5 py-1">סגנון שכבת מפה:</div>
-              {(Object.keys(TILE_LAYERS) as TileStyle[]).map((key) => (
+            <div
+              className={`absolute top-11 left-0 bg-gray-900/95 border border-gray-700/90 backdrop-blur-xl rounded-2xl shadow-2xl p-2 min-w-[230px] z-[1010] text-xs space-y-1 ${isRTL ? 'text-right' : 'text-left'}`}
+              dir={isRTL ? 'rtl' : 'ltr'}
+            >
+              <div className="text-[11px] font-bold text-gray-400 px-2.5 py-1">{t.mapLayerMenuHeader}</div>
+              {(Object.keys(tileLayers) as TileStyle[]).map((key) => (
                 <button
                   key={key}
                   onClick={() => {
                     setTileStyle(key);
                     setShowLayerMenu(false);
                   }}
-                  className={`w-full text-right px-3 py-2 rounded-xl font-medium transition-colors flex items-center justify-between ${
+                  className={`w-full px-3 py-2 rounded-xl font-medium transition-colors flex items-center justify-between gap-2 cursor-pointer ${
                     tileStyle === key 
                       ? 'bg-indigo-600/30 text-indigo-300 font-bold border border-indigo-500/40' 
                       : 'hover:bg-gray-800 text-gray-300'
                   }`}
                 >
-                  <span>{TILE_LAYERS[key].name}</span>
-                  {tileStyle === key && <Check className="h-3.5 w-3.5 text-indigo-400" />}
+                  <span>{tileLayers[key].name}</span>
+                  {tileStyle === key && <Check className="h-3.5 w-3.5 text-indigo-400 flex-shrink-0" />}
                 </button>
               ))}
             </div>
@@ -440,19 +446,19 @@ export const MapDisplay: React.FC<MapDisplayProps> = (props) => {
       <div className="relative w-full h-full">
         {/* Pin Drop Mode Banner */}
         {pinDropMode && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-md px-4">
-            <div className="bg-indigo-600/95 backdrop-blur-md border border-indigo-400/50 rounded-2xl shadow-2xl p-3 flex items-center justify-between text-white animate-pulse">
-              <div className="flex items-center space-x-2 space-x-reverse overflow-hidden">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-md px-4" dir={isRTL ? 'rtl' : 'ltr'}>
+            <div className="bg-indigo-600/95 backdrop-blur-md border border-indigo-400/50 rounded-2xl shadow-2xl p-3 flex items-center justify-between gap-3 text-white animate-pulse">
+              <div className="flex items-center gap-2 overflow-hidden">
                 <Crosshair className="h-5 w-5 text-indigo-200 flex-shrink-0" />
                 <p className="text-xs font-bold truncate">
-                  לחץ על המפה כדי למקם סיכה עבור &quot;{pinDropMode.name}&quot;
+                  {t.pinDropBanner(pinDropMode.name)}
                 </p>
               </div>
               <button 
                 onClick={onPinDropCancel} 
-                className="text-xs font-extrabold py-1.5 px-3 rounded-xl bg-indigo-800 hover:bg-indigo-900 border border-indigo-400/40 text-white transition-all shadow-md flex-shrink-0"
+                className="text-xs font-extrabold py-1.5 px-3 rounded-xl bg-indigo-800 hover:bg-indigo-900 border border-indigo-400/40 text-white transition-all shadow-md flex-shrink-0 cursor-pointer"
               >
-                ביטול
+                {t.cancelButton}
               </button>
             </div>
           </div>
@@ -504,30 +510,30 @@ export const MapDisplay: React.FC<MapDisplayProps> = (props) => {
                   }}
                 >
                   <Popup>
-                    <div className="text-right p-1 min-w-[220px]" dir="rtl">
-                      <div className="flex items-center space-x-1.5 space-x-reverse mb-1">
-                        <MapPin className="h-4 w-4 text-indigo-600" />
+                    <div className={`p-1 min-w-[220px] ${isRTL ? 'text-right' : 'text-left'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <MapPin className="h-4 w-4 text-indigo-600 flex-shrink-0" />
                         <h4 className="font-bold text-sm text-gray-900">{place.name}</h4>
                       </div>
-                      <p className="text-[11px] text-gray-500 font-mono mb-2">
+                      <p className="text-[11px] text-gray-500 font-mono mb-2" dir="ltr">
                         {latVal.toFixed(4)}°, {lonVal.toFixed(4)}°
                       </p>
                       
                       <p className="text-xs font-semibold text-gray-700 mb-1 border-b pb-1">
-                        אירועים שהתרחשו כאן:
+                        {t.eventsHereHeader}
                       </p>
                       
-                      <ul className="space-y-2 text-xs max-h-52 overflow-y-auto pr-1">
+                      <ul className="space-y-2 text-xs max-h-52 overflow-y-auto px-1">
                         {groupedEvents.map((item) => (
                           <li key={item.id} className="border-b border-gray-100 pb-1.5 last:border-b-0">
-                            <div className="flex justify-between items-center">
+                            <div className="flex justify-between items-center gap-2">
                               <span className="font-bold text-indigo-700 flex items-center gap-1">
                                 {item.isMarriage && <span>💍</span>}
-                                <span>{item.eventType}</span>
+                                <span>{formatEventType(item.eventType, lang)}</span>
                               </span>
                               {item.date && (
                                 <span className="text-[11px] text-gray-500 font-medium">
-                                  {formatDate(item.date)}
+                                  {formatDate(item.date, lang)}
                                 </span>
                               )}
                             </div>
@@ -535,19 +541,19 @@ export const MapDisplay: React.FC<MapDisplayProps> = (props) => {
                             {item.isMarriage && item.people.length > 1 ? (
                               <div className="text-gray-700 text-xs mt-1 bg-indigo-50/70 p-1.5 rounded-lg border border-indigo-100">
                                 <span className="text-indigo-900 font-semibold block text-[11px] mb-0.5">
-                                  חתן וכלה / בני זוג:
+                                  {t.couplePopupLabel}
                                 </span>
                                 <div className="flex flex-wrap items-center gap-1 text-[11px]">
                                   <button 
                                     onClick={() => onSelectPersonById(item.people[0].id)}
-                                    className="font-bold text-indigo-700 hover:text-indigo-900 hover:underline"
+                                    className="font-bold text-indigo-700 hover:text-indigo-900 hover:underline cursor-pointer"
                                   >
                                     {item.people[0].name}
                                   </button>
                                   <span className="text-gray-400 font-bold">♥</span>
                                   <button 
                                     onClick={() => onSelectPersonById(item.people[1].id)}
-                                    className="font-bold text-indigo-700 hover:text-indigo-900 hover:underline"
+                                    className="font-bold text-indigo-700 hover:text-indigo-900 hover:underline cursor-pointer"
                                   >
                                     {item.people[1].name}
                                   </button>
@@ -555,10 +561,10 @@ export const MapDisplay: React.FC<MapDisplayProps> = (props) => {
                               </div>
                             ) : (
                               <p className="text-gray-600 text-[11px] mt-0.5">
-                                עבור:{' '}
+                                {t.forPersonLabel}{' '}
                                 <button 
                                   onClick={() => onSelectPersonById(item.people[0].id)}
-                                  className="font-semibold text-emerald-600 hover:text-emerald-700 hover:underline"
+                                  className="font-semibold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer"
                                 >
                                   {item.people[0].name}
                                 </button>
@@ -568,7 +574,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = (props) => {
                         ))}
                       </ul>
                       <p className="text-[10px] text-gray-400 mt-2 text-center">
-                        גרור את הסיכה כדי לעדכן את המיקום במפה
+                        {t.dragPinHint}
                       </p>
                     </div>
                   </Popup>

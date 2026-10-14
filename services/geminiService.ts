@@ -1,3 +1,5 @@
+import type { Language } from './i18n.ts';
+
 /**
  * Client-side Gemini service communicating securely with server-side proxy routes.
  */
@@ -84,15 +86,20 @@ export const geocodePlaces = async (
 };
 
 /**
- * Generates historical context for a person or place based on their timeline events in Hebrew.
+ * Generates historical context for a person or place based on their timeline events in the selected UI language.
  */
 export const generateHistoricalContext = async (
   name: string,
   type: 'person' | 'place',
-  eventsSummary: string
+  eventsSummary: string,
+  lang: Language = 'he'
 ): Promise<string> => {
+  const staticErr = lang === 'he'
+    ? 'שירותי ההקשר ההיסטורי של Gemini דורשים שרת רקע פעיל ואינם זמינים באירוח סטטי של GitHub Pages. כל שאר יכולות המפה, הקואורדינטות והתובנות פועלות במלואן באופן עצמאי בדפדפן.'
+    : 'Gemini historical context services require an active backend server and are unavailable on static GitHub Pages hosting. All map, geocoding, and demographic insights features work fully in the browser.';
+
   if (isStaticHost()) {
-    throw new Error('שירותי ההקשר ההיסטורי של Gemini דורשים שרת רקע פעיל ואינם זמינים באירוח סטטי של GitHub Pages. כל שאר יכולות המפה, הקואורדינטות והתובנות פועלות במלואן באופן עצמאי בדפדפן.');
+    throw new Error(staticErr);
   }
 
   const response = await fetch('/api/historical-context', {
@@ -100,12 +107,12 @@ export const generateHistoricalContext = async (
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ name, type, eventsSummary }),
+    body: JSON.stringify({ name, type, eventsSummary, lang }),
   });
 
   if (response.status === 404) {
     markAsStaticHost();
-    throw new Error('שירותי ההקשר ההיסטורי של Gemini דורשים שרת רקע פעיל ואינם זמינים באירוח סטטי של GitHub Pages. כל שאר יכולות המפה, הקואורדינטות והתובנות פועלות במלואן באופן עצמאי בדפדפן.');
+    throw new Error(staticErr);
   }
 
   if (!response.ok) {
@@ -114,7 +121,7 @@ export const generateHistoricalContext = async (
   }
 
   const data = await response.json();
-  return data.text || 'לא התקבל מידע היסטורי.';
+  return data.text || (lang === 'he' ? 'לא התקבל מידע היסטורי.' : 'No historical context received.');
 };
 
 /**
@@ -125,10 +132,15 @@ export const chatHistoricalContext = async (
   type: 'person' | 'place',
   eventsSummary: string,
   history: { role: 'user' | 'model'; text: string }[],
-  latestQuestion: string
+  latestQuestion: string,
+  lang: Language = 'he'
 ): Promise<string> => {
+  const staticErr = lang === 'he'
+    ? 'שירותי Gemini דורשים שרת פעיל ואינם זמינים באירוח סטטי של GitHub Pages.'
+    : 'Gemini services require an active backend server and are unavailable on static GitHub Pages hosting.';
+
   if (isStaticHost()) {
-    throw new Error('שירותי Gemini דורשים שרת פעיל ואינם זמינים באירוח סטטי של GitHub Pages.');
+    throw new Error(staticErr);
   }
 
   const response = await fetch('/api/chat-context', {
@@ -136,12 +148,12 @@ export const chatHistoricalContext = async (
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ name, type, eventsSummary, history, latestQuestion }),
+    body: JSON.stringify({ name, type, eventsSummary, history, latestQuestion, lang }),
   });
 
   if (response.status === 404) {
     markAsStaticHost();
-    throw new Error('שירותי Gemini דורשים שרת פעיל ואינם זמינים באירוח סטטי של GitHub Pages.');
+    throw new Error(staticErr);
   }
 
   if (!response.ok) {
@@ -150,5 +162,5 @@ export const chatHistoricalContext = async (
   }
 
   const data = await response.json();
-  return data.text || 'לא התקבל מענה.';
+  return data.text || (lang === 'he' ? 'לא התקבל מענה.' : 'No response received.');
 };

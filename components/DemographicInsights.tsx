@@ -7,7 +7,6 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  Legend, 
   PieChart, 
   Pie, 
   Cell, 
@@ -21,7 +20,6 @@ import {
   TrendingUp, 
   Navigation, 
   Compass, 
-  Info, 
   ArrowLeftRight, 
   Award, 
   Clock,
@@ -36,6 +34,7 @@ import {
 } from 'lucide-react';
 import { Person, Place } from '../types.ts';
 import { getYearFromDate } from '../services/utils.ts';
+import { useLanguage, formatEventType } from '../services/i18n.ts';
 
 interface DemographicInsightsProps {
   persons: Person[];
@@ -63,6 +62,8 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
   onSelectPerson, 
   onSelectTab 
 }) => {
+  const { lang, isRTL } = useLanguage();
+  const isHe = lang === 'he';
   const [activeSubTab, setActiveSubTab] = useState<'geographics' | 'demographics'>('geographics');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedPath, setExpandedPath] = useState<string | null>(null);
@@ -98,6 +99,14 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
     return map;
   }, [places]);
 
+  const seriesKeys = useMemo(() => ({
+    peopleCount: isHe ? 'מספר אנשים' : 'People',
+    surnameFreq: isHe ? 'שכיחות' : 'Frequency',
+    births: isHe ? 'לידות' : 'Births',
+    birthCountry: isHe ? 'מדינת לידה' : 'Births in Country',
+    deathCountry: isHe ? 'מדינת פטירה' : 'Deaths in Country',
+  }), [isHe]);
+
   const stats = useMemo(() => {
     let totalPersons = persons.length;
     let maleCount = 0;
@@ -108,13 +117,31 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
     let lifespansCount = 0;
     const lifespans: number[] = [];
 
-    const ageGroups = {
-      '0-10 (ילדות)': 0,
-      '11-25 (נעורים)': 0,
-      '26-50 (בגרות)': 0,
-      '51-70 (בשלות)': 0,
-      '71-85 (גיל שלישי)': 0,
-      '86+ (שיבה טובה)': 0,
+    const ageGroupLabels = isHe
+      ? [
+          '0-10 (ילדות)',
+          '11-25 (נעורים)',
+          '26-50 (בגרות)',
+          '51-70 (בשלות)',
+          '71-85 (גיל שלישי)',
+          '86+ (שיבה טובה)',
+        ]
+      : [
+          '0-10 (Childhood)',
+          '11-25 (Youth)',
+          '26-50 (Adulthood)',
+          '51-70 (Maturity)',
+          '71-85 (Senior)',
+          '86+ (Longevity)',
+        ];
+
+    const ageGroups: Record<string, number> = {
+      [ageGroupLabels[0]]: 0,
+      [ageGroupLabels[1]]: 0,
+      [ageGroupLabels[2]]: 0,
+      [ageGroupLabels[3]]: 0,
+      [ageGroupLabels[4]]: 0,
+      [ageGroupLabels[5]]: 0,
     };
 
     const surnameCounts: { [key: string]: number } = {};
@@ -170,7 +197,7 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
             countryFirstEvents[country] = {
               year,
               person: p.name,
-              eventType: event.eventType === 'MARR' ? 'נישואין' : event.eventType === 'BAPM' ? 'הטבלה' : event.eventType === 'Birth' ? 'לידה' : event.eventType === 'Death' ? 'פטירה' : event.eventType,
+              eventType: formatEventType(event.eventType, lang),
               place: event.place
             };
           }
@@ -223,12 +250,12 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
           totalLifespans += age;
           lifespansCount++;
 
-          if (age <= 10) ageGroups['0-10 (ילדות)']++;
-          else if (age <= 25) ageGroups['11-25 (נעורים)']++;
-          else if (age <= 50) ageGroups['26-50 (בגרות)']++;
-          else if (age <= 70) ageGroups['51-70 (בשלות)']++;
-          else if (age <= 85) ageGroups['71-85 (גיל שלישי)']++;
-          else ageGroups['86+ (שיבה טובה)']++;
+          if (age <= 10) ageGroups[ageGroupLabels[0]]++;
+          else if (age <= 25) ageGroups[ageGroupLabels[1]]++;
+          else if (age <= 50) ageGroups[ageGroupLabels[2]]++;
+          else if (age <= 70) ageGroups[ageGroupLabels[3]]++;
+          else if (age <= 85) ageGroups[ageGroupLabels[4]]++;
+          else ageGroups[ageGroupLabels[5]]++;
         }
       }
 
@@ -298,35 +325,35 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
 
     // Convert datasets for Recharts
     const genderData = [
-      { name: 'גברים', value: maleCount, color: '#3b82f6' },
-      { name: 'נשים', value: femaleCount, color: '#ec4899' },
-      { name: 'לא ידוע', value: unknownGenderCount, color: '#6b7280' }
+      { name: isHe ? 'גברים' : 'Male', value: maleCount, color: '#3b82f6' },
+      { name: isHe ? 'נשים' : 'Female', value: femaleCount, color: '#ec4899' },
+      { name: isHe ? 'לא ידוע' : 'Unknown', value: unknownGenderCount, color: '#6b7280' }
     ].filter(g => g.value > 0);
 
     const ageGroupData = Object.keys(ageGroups).map(group => ({
       name: group,
-      'מספר אנשים': ageGroups[group]
+      [seriesKeys.peopleCount]: ageGroups[group]
     }));
 
     const topSurnames = Object.keys(surnameCounts)
-      .map(name => ({ name, 'שכיחות': surnameCounts[name] }))
-      .sort((a, b) => b['שכיחות'] - a['שכיחות'])
+      .map(name => ({ name, [seriesKeys.surnameFreq]: surnameCounts[name] }))
+      .sort((a, b) => (b[seriesKeys.surnameFreq] as number) - (a[seriesKeys.surnameFreq] as number))
       .slice(0, 10);
 
     const timelineData = Object.keys(birthDecades)
-      .map(dec => ({ decade: parseInt(dec, 10), 'לידות': birthDecades[dec] }))
+      .map(dec => ({ decade: parseInt(dec, 10), [seriesKeys.births]: birthDecades[dec] }))
       .sort((a, b) => a.decade - b.decade)
       .map(item => ({ ...item, name: `${item.decade}s` }));
 
     // Geographic detailed datasets
     const birthCountriesData = Object.keys(birthCountries)
-      .map(name => ({ name, 'מדינת לידה': birthCountries[name] }))
-      .sort((a, b) => b['מדינת לידה'] - a['מדינת לידה'])
+      .map(name => ({ name, [seriesKeys.birthCountry]: birthCountries[name] }))
+      .sort((a, b) => (b[seriesKeys.birthCountry] as number) - (a[seriesKeys.birthCountry] as number))
       .slice(0, 6);
 
     const deathCountriesData = Object.keys(deathCountries)
-      .map(name => ({ name, 'מדינת פטירה': deathCountries[name] }))
-      .sort((a, b) => b['מדינת פטירה'] - a['מדינת פטירה'])
+      .map(name => ({ name, [seriesKeys.deathCountry]: deathCountries[name] }))
+      .sort((a, b) => (b[seriesKeys.deathCountry] as number) - (a[seriesKeys.deathCountry] as number))
       .slice(0, 6);
 
     // Settlement Timeline sorted chronologically
@@ -361,7 +388,7 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
       avgMigrationDistance,
       centerOfGravity
     };
-  }, [persons, placeCoordsMap]);
+  }, [persons, placeCoordsMap, isHe, lang, seriesKeys]);
 
   // Filters migration paths and members based on the search query
   const filteredMigrations = useMemo(() => {
@@ -389,17 +416,22 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
   }, [stats.sortedMigrations, searchQuery]);
 
   return (
-    <div className="h-full bg-gray-950/40 overflow-y-auto p-4 md:p-8 space-y-8 custom-scrollbar" dir="rtl" id="demographic-insights-dashboard">
-      
+    <div
+      className="h-full bg-gray-950/40 overflow-y-auto p-4 md:p-8 space-y-8 custom-scrollbar"
+      dir={isRTL ? 'rtl' : 'ltr'}
+      id="demographic-insights-dashboard"
+    >
       {/* Dashboard Custom Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-gray-800/80 pb-6">
         <div>
           <h2 className="text-2xl font-black text-white flex items-center gap-3">
-            <Globe className="h-7 w-7 text-indigo-400" />
-            אנליטיקה ומחקר גיאוגרפי-דמוגרפי
+            <Globe className="h-7 w-7 text-indigo-400 flex-shrink-0" />
+            {isHe ? 'אנליטיקה ומחקר גיאוגרפי-דמוגרפי' : 'Geographic & Demographic Analytics'}
           </h2>
           <p className="text-gray-400 text-sm mt-1">
-            חשיפת מגמות תנועה, צירי זמן של התיישבות משפחתית וניתוחי עומק מרחביים מתוך קובץ ה-GEDCOM.
+            {isHe
+              ? 'חשיפת מגמות תנועה, צירי זמן של התיישבות משפחתית וניתוחי עומק מרחביים מתוך קובץ ה-GEDCOM.'
+              : 'Uncovering migration trends, family settlement timelines, and spatial insights from your GEDCOM file.'}
           </p>
         </div>
 
@@ -407,26 +439,25 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
         <div className="flex items-center bg-gray-900 border border-gray-800 p-1 rounded-xl">
           <button
             onClick={() => setActiveSubTab('geographics')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer ${
               activeSubTab === 'geographics' 
                 ? 'bg-indigo-600 text-white shadow-lg' 
                 : 'text-gray-400 hover:text-white'
             }`}
           >
             <MapIcon className="h-4 w-4" />
-            <span>גיאוגרפיה ונתיבי הגירה</span>
-            <span className="bg-emerald-500 text-[10px] text-gray-950 px-1.5 py-0.5 rounded-full font-extrabold">מפות</span>
+            <span>{isHe ? 'גיאוגרפיה ונתיבי הגירה' : 'Geography & Migration'}</span>
           </button>
           <button
             onClick={() => setActiveSubTab('demographics')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer ${
               activeSubTab === 'demographics' 
                 ? 'bg-indigo-600 text-white shadow-lg' 
                 : 'text-gray-400 hover:text-white'
             }`}
           >
             <Users className="h-4 w-4" />
-            <span>התפלגות דמוגרפית</span>
+            <span>{isHe ? 'התפלגות דמוגרפית' : 'Demographic Distribution'}</span>
           </button>
         </div>
       </div>
@@ -441,55 +472,65 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             
             {/* Metric 1: Mapped Places */}
-            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center space-x-4 space-x-reverse relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
+            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center gap-4 relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
               <div className="absolute top-0 right-0 h-24 w-24 bg-indigo-500/5 blur-3xl rounded-full" />
-              <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400">
+              <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400 flex-shrink-0">
                 <Compass className="h-6 w-6" />
               </div>
               <div>
-                <span className="text-gray-400 text-xs block font-medium">מיקומים ממופים בעץ</span>
+                <span className="text-gray-400 text-xs block font-medium">
+                  {isHe ? 'מיקומים ממופים בעץ' : 'Mapped Locations'}
+                </span>
                 <span className="text-2xl font-bold text-white block mt-1">{places.length}</span>
               </div>
             </div>
 
             {/* Metric 2: Interstate Migrations */}
-            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center space-x-4 space-x-reverse relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
+            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center gap-4 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
               <div className="absolute top-0 right-0 h-24 w-24 bg-emerald-500/5 blur-3xl rounded-full" />
-              <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400">
+              <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 flex-shrink-0">
                 <ArrowLeftRight className="h-6 w-6" />
               </div>
               <div>
-                <span className="text-gray-400 text-xs block font-medium">סך הגירות בין-ארציות</span>
+                <span className="text-gray-400 text-xs block font-medium">
+                  {isHe ? 'סך הגירות בין-ארציות' : 'International Migrations'}
+                </span>
                 <span className="text-2xl font-bold text-white block mt-1">{stats.totalMigrations}</span>
               </div>
             </div>
 
             {/* Metric 3: Average Migration Distance */}
-            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center space-x-4 space-x-reverse relative overflow-hidden group hover:border-amber-500/30 transition-all duration-300">
+            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center gap-4 relative overflow-hidden group hover:border-amber-500/30 transition-all duration-300">
               <div className="absolute top-0 right-0 h-24 w-24 bg-amber-500/5 blur-3xl rounded-full" />
-              <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400">
+              <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400 flex-shrink-0">
                 <Activity className="h-6 w-6" />
               </div>
               <div>
-                <span className="text-gray-400 text-xs block font-medium">מרחק הגירה ממוצע</span>
+                <span className="text-gray-400 text-xs block font-medium">
+                  {isHe ? 'מרחק הגירה ממוצע' : 'Avg. Migration Distance'}
+                </span>
                 <span className="text-2xl font-bold text-white block mt-1">
-                  {stats.avgMigrationDistance > 0 ? `~${stats.avgMigrationDistance.toLocaleString()} ק"מ` : 'אין נתוני מרחק'}
+                  {stats.avgMigrationDistance > 0
+                    ? isHe ? `~${stats.avgMigrationDistance.toLocaleString()} ק"מ` : `~${stats.avgMigrationDistance.toLocaleString()} km`
+                    : isHe ? 'אין נתוני מרחק' : 'No distance data'}
                 </span>
               </div>
             </div>
 
             {/* Metric 4: Family Centroid */}
-            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center space-x-4 space-x-reverse relative overflow-hidden group hover:border-pink-500/30 transition-all duration-300">
+            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center gap-4 relative overflow-hidden group hover:border-pink-500/30 transition-all duration-300">
               <div className="absolute top-0 right-0 h-24 w-24 bg-pink-500/5 blur-3xl rounded-full" />
-              <div className="p-3 bg-pink-500/10 rounded-xl text-pink-400">
+              <div className="p-3 bg-pink-500/10 rounded-xl text-pink-400 flex-shrink-0">
                 <Globe className="h-6 w-6" />
               </div>
               <div>
-                <span className="text-gray-400 text-xs block font-medium">מרכז כובד גיאוגרפי</span>
-                <span className="text-sm font-bold text-white block mt-1.5 truncate">
+                <span className="text-gray-400 text-xs block font-medium">
+                  {isHe ? 'מרכז כובד גיאוגרפי' : 'Geographic Center of Gravity'}
+                </span>
+                <span className="text-sm font-bold text-white block mt-1.5 truncate" dir="ltr">
                   {stats.centerOfGravity 
                     ? `${stats.centerOfGravity.lat}°, ${stats.centerOfGravity.lon}°`
-                    : 'אין נתוני קואורדינטות'}
+                    : isHe ? 'אין נתוני קואורדינטות' : 'No coordinates'}
                 </span>
               </div>
             </div>
@@ -500,22 +541,33 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
             <div className="bg-gradient-to-r from-indigo-950/40 to-slate-900/50 border border-indigo-500/20 p-6 rounded-2xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative overflow-hidden">
               <div className="absolute top-0 right-0 h-64 w-64 bg-indigo-500/5 blur-3xl rounded-full" />
               <div className="space-y-2 relative z-10 flex-1">
-                <span className="bg-indigo-500/10 text-indigo-300 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border border-indigo-500/20 inline-block mb-1">
-                  🧭 הנווד הגדול ביותר במשפחה (The Family Nomad)
+                <span className="text-indigo-300 text-xs font-black uppercase tracking-wider block mb-1">
+                  {isHe ? '🧭 הנווד הגדול ביותר במשפחה' : '🧭 The Family Nomad'}
                 </span>
                 <h3 className="text-xl font-bold text-white">
                   {stats.longestMigrant.person.name}
                 </h3>
-                <p className="text-gray-300 text-sm max-w-2xl leading-relaxed">
-                  העתיק את מרכז חייו ממיקום הלידה <strong className="text-indigo-200 font-semibold">{stats.longestMigrant.birthPlace}</strong> אל מיקום הפטירה <strong className="text-emerald-200 font-semibold">{stats.longestMigrant.deathPlace}</strong>.
-                  המסע משתרע על פני נתיב גיאוגרפי עצום של לא פחות מ-
-                  <strong className="text-indigo-400 text-base mx-1 font-black">{stats.longestMigrant.distance.toLocaleString()} ק"מ</strong>!
-                </p>
+                {isHe ? (
+                  <p className="text-gray-300 text-sm max-w-2xl leading-relaxed">
+                    העתיק את מרכז חייו ממיקום הלידה <strong className="text-indigo-200 font-semibold">{stats.longestMigrant.birthPlace}</strong> אל מיקום הפטירה <strong className="text-emerald-200 font-semibold">{stats.longestMigrant.deathPlace}</strong>.
+                    המסע משתרע על פני נתיב גיאוגרפי עצום של לא פחות מ-
+                    <strong className="text-indigo-400 text-base mx-1 font-black">{stats.longestMigrant.distance.toLocaleString()} ק"מ</strong>!
+                  </p>
+                ) : (
+                  <p className="text-gray-300 text-sm max-w-2xl leading-relaxed">
+                    Moved from birthplace <strong className="text-indigo-200 font-semibold">{stats.longestMigrant.birthPlace}</strong> to resting place <strong className="text-emerald-200 font-semibold">{stats.longestMigrant.deathPlace}</strong>, covering an extraordinary distance of
+                    <strong className="text-indigo-400 text-base mx-1 font-black">{stats.longestMigrant.distance.toLocaleString()} km</strong>!
+                  </p>
+                )}
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-3 relative z-10">
-                <div className="text-right sm:text-left">
-                  <span className="text-2xl font-black text-indigo-400 block">~{stats.longestMigrant.distance.toLocaleString()} ק"מ</span>
-                  <span className="text-[10px] text-gray-500 font-bold block mt-0.5">מרחק אווירי מחושב</span>
+                <div className={isRTL ? 'text-right sm:text-left' : 'text-left sm:text-right'}>
+                  <span className="text-2xl font-black text-indigo-400 block">
+                    ~{stats.longestMigrant.distance.toLocaleString()} {isHe ? 'ק"מ' : 'km'}
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-bold block mt-0.5">
+                    {isHe ? 'מרחק אווירי מחושב' : 'Calculated aerial distance'}
+                  </span>
                 </div>
                 {onSelectPerson && onSelectTab && (
                   <button
@@ -523,9 +575,9 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                       onSelectPerson(stats.longestMigrant!.person.id);
                       onSelectTab('map');
                     }}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-600/20 flex items-center gap-1.5"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-600/20 flex items-center gap-1.5 cursor-pointer"
                   >
-                    <span>🗺️ הצג נתיב על המפה</span>
+                    <span>{isHe ? '🗺️ הצג נתיב על המפה' : '🗺️ Show Path on Map'}</span>
                     <ExternalLink className="h-3.5 w-3.5" />
                   </button>
                 )}
@@ -540,7 +592,7 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
             <div className="bg-gray-900/40 border border-gray-800/60 p-6 rounded-2xl flex flex-col h-[350px]">
               <h3 className="text-sm font-bold text-gray-200 mb-4 flex items-center gap-2">
                 <MapPin className="h-4.5 w-4.5 text-indigo-400" />
-                מדינות הלידה הנפוצות ביותר (שורשי המשפחה)
+                {isHe ? 'מדינות הלידה הנפוצות ביותר (שורשי המשפחה)' : 'Most Common Birth Countries (Family Roots)'}
               </h3>
               <div className="flex-1 w-full min-h-0 text-xs">
                 {stats.birthCountriesData.length > 0 ? (
@@ -550,14 +602,14 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                       <XAxis dataKey="name" stroke="#9ca3af" />
                       <YAxis stroke="#9ca3af" allowDecimals={false} />
                       <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#4b5563', borderRadius: '8px', color: '#fff', textAlign: 'right' }} 
+                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#4b5563', borderRadius: '8px', color: '#fff', textAlign: isRTL ? 'right' : 'left' }} 
                       />
-                      <Bar dataKey="מדינת לידה" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={seriesKeys.birthCountry} fill="#6366f1" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500 italic">
-                    אין מספיק נתוני מדינת לידה בקובץ.
+                    {isHe ? 'אין מספיק נתוני מדינת לידה בקובץ.' : 'Not enough birth country data in file.'}
                   </div>
                 )}
               </div>
@@ -567,7 +619,7 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
             <div className="bg-gray-900/40 border border-gray-800/60 p-6 rounded-2xl flex flex-col h-[350px]">
               <h3 className="text-sm font-bold text-gray-200 mb-4 flex items-center gap-2">
                 <MapPin className="h-4.5 w-4.5 text-emerald-400" />
-                מדינות הפטירה הנפוצות ביותר (יעדי המשפחה)
+                {isHe ? 'מדינות הפטירה הנפוצות ביותר (יעדי המשפחה)' : 'Most Common Death Countries (Family Destinations)'}
               </h3>
               <div className="flex-1 w-full min-h-0 text-xs">
                 {stats.deathCountriesData.length > 0 ? (
@@ -577,14 +629,14 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                       <XAxis dataKey="name" stroke="#9ca3af" />
                       <YAxis stroke="#9ca3af" allowDecimals={false} />
                       <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#4b5563', borderRadius: '8px', color: '#fff', textAlign: 'right' }} 
+                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#4b5563', borderRadius: '8px', color: '#fff', textAlign: isRTL ? 'right' : 'left' }} 
                       />
-                      <Bar dataKey="מדינת פטירה" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={seriesKeys.deathCountry} fill="#10b981" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500 italic">
-                    אין מספיק נתוני מדינת פטירה בקובץ.
+                    {isHe ? 'אין מספיק נתוני מדינת פטירה בקובץ.' : 'Not enough death country data in file.'}
                   </div>
                 )}
               </div>
@@ -595,39 +647,45 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
           <div className="bg-gray-900/40 border border-gray-800/60 p-6 rounded-2xl">
             <h3 className="text-sm font-bold text-gray-200 mb-6 flex items-center gap-2">
               <Calendar className="h-4.5 w-4.5 text-indigo-400" />
-              ציר זמן להתיישבות המשפחה והתפשטותה הגיאוגרפית
+              {isHe ? 'ציר זמן להתיישבות המשפחה והתפשטותה הגיאוגרפית' : 'Family Settlement & Geographic Expansion Timeline'}
             </h3>
             {stats.settlementTimeline.length > 0 ? (
-              <div className="relative border-r-2 border-indigo-500/20 mr-4 space-y-8 pb-4">
+              <div className={`relative ${isRTL ? 'border-r-2 mr-4' : 'border-l-2 ml-4'} border-indigo-500/20 space-y-8 pb-4`}>
                 {stats.settlementTimeline.map((item, idx) => (
-                  <div key={idx} className="relative pr-8 group">
+                  <div key={idx} className={`relative ${isRTL ? 'pr-8' : 'pl-8'} group`}>
                     {/* Circle marker on timeline */}
-                    <div className="absolute top-1.5 -right-[9px] w-4 h-4 rounded-full border-2 border-indigo-500 bg-gray-950 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                    <div className={`absolute top-1.5 ${isRTL ? '-right-[9px]' : '-left-[9px]'} w-4 h-4 rounded-full border-2 border-indigo-500 bg-gray-950 flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
                       <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
                     </div>
                     {/* Card container */}
                     <div className="bg-gray-900/60 border border-gray-800 p-4 rounded-xl hover:border-indigo-500/20 transition-all max-w-3xl">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <span className="text-sm font-black text-indigo-400 block">
-                          שנת {item.year}
+                          {isHe ? `שנת ${item.year}` : `Year ${item.year}`}
                         </span>
-                        <span className="text-[10px] text-gray-500 font-bold block bg-gray-950 px-2.5 py-0.5 rounded border border-gray-800/60 uppercase">
-                          אירוע ראשון מתועד
+                        <span className="text-[11px] text-gray-400 font-semibold block">
+                          {isHe ? 'אירוע ראשון מתועד' : 'First Recorded Event'}
                         </span>
                       </div>
                       <h4 className="text-base font-bold text-white mt-1.5">
-                        הגעה ראשונה מתועדת אל: {item.country}
+                        {isHe ? `הגעה ראשונה מתועדת אל: ${item.country}` : `First documented presence in: ${item.country}`}
                       </h4>
-                      <p className="text-gray-400 text-xs mt-2 leading-relaxed">
-                        האירוע ההיסטורי הראשון שנרשם במדינה זו הוא <span className="text-gray-200 font-semibold">{item.eventType}</span> של <span className="text-indigo-200 font-medium">{item.person}</span> במיקום <span className="text-emerald-200 italic">{item.place}</span>.
-                      </p>
+                      {isHe ? (
+                        <p className="text-gray-400 text-xs mt-2 leading-relaxed">
+                          האירוע ההיסטורי הראשון שנרשם במדינה זו הוא <span className="text-gray-200 font-semibold">{item.eventType}</span> של <span className="text-indigo-200 font-medium">{item.person}</span> במיקום <span className="text-emerald-200 italic">{item.place}</span>.
+                        </p>
+                      ) : (
+                        <p className="text-gray-400 text-xs mt-2 leading-relaxed">
+                          The earliest recorded event in this country is <span className="text-gray-200 font-semibold">{item.eventType}</span> of <span className="text-indigo-200 font-medium">{item.person}</span> at <span className="text-emerald-200 italic">{item.place}</span>.
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="p-6 bg-gray-900/20 rounded-xl border border-dashed border-gray-800 text-center text-gray-500 text-sm">
-                אין מספיק נתונים כרונולוגיים כדי להפיק את ציר הזמן הגיאוגרפי.
+                {isHe ? 'אין מספיק נתונים כרונולוגיים כדי להפיק את ציר הזמן הגיאוגרפי.' : 'Not enough chronological data to generate the geographic timeline.'}
               </div>
             )}
           </div>
@@ -638,21 +696,23 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-gray-200 flex items-center gap-2">
                   <Navigation className="h-4.5 w-4.5 text-amber-400" />
-                  חוקר נתיבי הגירה משפחתיים (לחץ על נתיב כדי לראות את האנשים)
+                  {isHe ? 'חוקר נתיבי הגירה משפחתיים (לחץ על נתיב כדי לראות את האנשים)' : 'Family Migration Paths Explorer (Click a route to view people)'}
                 </h3>
-                <p className="text-xs text-gray-400 mt-1">חיפוש על פי שם אדם, מדינה, או עיר מוצא/יעד.</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {isHe ? 'חיפוש על פי שם אדם, מדינה, או עיר מוצא/יעד.' : 'Search by person name, country, or origin/destination city.'}
+                </p>
               </div>
               
               {/* Search bar */}
               <div className="relative w-full md:w-64">
                 <input
                   type="text"
-                  placeholder="חיפוש אדם או מיקום..."
+                  placeholder={isHe ? 'חיפוש אדם או מיקום...' : 'Search person or location...'}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-gray-950 text-xs border border-gray-800 rounded-xl py-2 pl-3 pr-9 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                  className={`w-full bg-gray-950 text-xs border border-gray-800 rounded-xl py-2 ${isRTL ? 'pl-3 pr-9' : 'pl-9 pr-3'} text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all`}
                 />
-                <Search className="absolute right-3 top-2.5 h-3.5 w-3.5 text-gray-500" />
+                <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-2.5 h-3.5 w-3.5 text-gray-500`} />
               </div>
             </div>
 
@@ -668,14 +728,16 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                       {/* Main Trigger row */}
                       <button
                         onClick={() => setExpandedPath(isExpanded ? null : migration.path)}
-                        className="w-full p-4 flex items-center justify-between text-right hover:bg-gray-900/80 transition-colors"
+                        className={`w-full p-4 flex items-center justify-between ${isRTL ? 'text-right' : 'text-left'} hover:bg-gray-900/80 transition-colors cursor-pointer`}
                       >
                         <div className="flex items-center gap-3">
                           <div className="text-indigo-400 bg-indigo-500/10 p-2 rounded-lg">
                             <ArrowLeftRight className="h-4.5 w-4.5" />
                           </div>
                           <div>
-                            <span className="text-[10px] text-gray-500 font-black block uppercase tracking-wider">נתיב הגירה {index + 1}</span>
+                            <span className="text-[10px] text-gray-500 font-black block uppercase tracking-wider">
+                              {isHe ? `נתיב הגירה ${index + 1}` : `Migration Route ${index + 1}`}
+                            </span>
                             <div className="flex items-center gap-2 mt-1 text-sm text-gray-200">
                               <span className="font-bold text-indigo-300">{migration.from}</span>
                               <span className="text-gray-500">➔</span>
@@ -685,9 +747,13 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                         </div>
 
                         <div className="flex items-center gap-4">
-                          <div className="text-left">
-                            <span className="text-sm font-black text-white block">{migration.count} נפשות</span>
-                            <span className="text-[10px] text-gray-500 font-bold block">עשו מסלול זה</span>
+                          <div className={isRTL ? 'text-left' : 'text-right'}>
+                            <span className="text-sm font-black text-white block">
+                              {isHe ? `${migration.count} נפשות` : `${migration.count} ${migration.count === 1 ? 'person' : 'people'}`}
+                            </span>
+                            <span className="text-[10px] text-gray-500 font-bold block">
+                              {isHe ? 'עשו מסלול זה' : 'followed this route'}
+                            </span>
                           </div>
                           {isExpanded ? (
                             <ChevronUp className="h-4.5 w-4.5 text-gray-400" />
@@ -700,7 +766,9 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                       {/* Expanded Section: Member list */}
                       {isExpanded && (
                         <div className="border-t border-gray-800 bg-gray-950/40 p-4 space-y-3">
-                          <h4 className="text-xs font-bold text-indigo-300 mb-2">פירוט בני המשפחה שבצעו הגירה זו:</h4>
+                          <h4 className="text-xs font-bold text-indigo-300 mb-2">
+                            {isHe ? 'פירוט בני המשפחה שביצעו הגירה זו:' : 'Family members who made this migration:'}
+                          </h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {migration.members.map((member, mIdx) => (
                               <div 
@@ -715,12 +783,12 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                                     {member.birthYear || '?'} - {member.deathYear || '?'}
                                   </span>
                                   <div className="text-[10px] text-gray-400 mt-1.5 space-y-0.5">
-                                    <p><strong className="text-indigo-400">לידה:</strong> {member.birthPlace}</p>
-                                    <p><strong className="text-emerald-400">פטירה:</strong> {member.deathPlace}</p>
+                                    <p><strong className="text-indigo-400">{isHe ? 'לידה:' : 'Birth:'}</strong> {member.birthPlace}</p>
+                                    <p><strong className="text-emerald-400">{isHe ? 'פטירה:' : 'Death:'}</strong> {member.deathPlace}</p>
                                   </div>
                                   {member.distanceKm > 0 && (
-                                    <span className="text-[9px] bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded-md inline-block mt-2 font-bold">
-                                      ~{member.distanceKm.toLocaleString()} ק"מ אווירי
+                                    <span className="text-[10px] text-indigo-300 inline-block mt-1.5 font-semibold">
+                                      ~{member.distanceKm.toLocaleString()} {isHe ? 'ק"מ אווירי' : 'km aerial'}
                                     </span>
                                   )}
                                 </div>
@@ -731,11 +799,11 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                                       onSelectPerson(member.id);
                                       onSelectTab('map');
                                     }}
-                                    className="p-2 bg-indigo-600/15 hover:bg-indigo-600 text-indigo-400 hover:text-white rounded-lg transition-all text-xs font-black flex items-center gap-1 shrink-0"
-                                    title="הצג על המפה"
+                                    className="p-2 bg-indigo-600/15 hover:bg-indigo-600 text-indigo-400 hover:text-white rounded-lg transition-all text-xs font-black flex items-center gap-1 shrink-0 cursor-pointer"
+                                    title={isHe ? 'הצג על המפה' : 'Show on Map'}
                                   >
                                     <MapPin className="h-3.5 w-3.5" />
-                                    <span className="hidden sm:inline">מפה</span>
+                                    <span className="hidden sm:inline">{isHe ? 'מפה' : 'Map'}</span>
                                   </button>
                                 )}
                               </div>
@@ -749,7 +817,7 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
               </div>
             ) : (
               <div className="p-8 bg-gray-900/20 rounded-xl border border-dashed border-gray-800 text-center text-gray-500 text-sm">
-                לא נמצאו נתיבי הגירה התואמים את החיפוש שלך.
+                {isHe ? 'לא נמצאו נתיבי הגירה התואמים את החיפוש שלך.' : 'No migration routes match your search.'}
               </div>
             )}
           </div>
@@ -765,51 +833,63 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             
             {/* Metric 1 */}
-            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center space-x-4 space-x-reverse relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
+            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center gap-4 relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
               <div className="absolute top-0 right-0 h-24 w-24 bg-indigo-500/5 blur-3xl rounded-full" />
-              <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400">
+              <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400 flex-shrink-0">
                 <Users className="h-6 w-6" />
               </div>
               <div>
-                <span className="text-gray-400 text-xs block font-medium">סך הכל נפשות בקובץ</span>
+                <span className="text-gray-400 text-xs block font-medium">
+                  {isHe ? 'סך הכל נפשות בקובץ' : 'Total Individuals'}
+                </span>
                 <span className="text-2xl font-bold text-white block mt-1">{stats.totalPersons}</span>
               </div>
             </div>
 
             {/* Metric 2 */}
-            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center space-x-4 space-x-reverse relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
+            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center gap-4 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
               <div className="absolute top-0 right-0 h-24 w-24 bg-emerald-500/5 blur-3xl rounded-full" />
-              <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400">
+              <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400 flex-shrink-0">
                 <Heart className="h-6 w-6" />
               </div>
               <div>
-                <span className="text-gray-400 text-xs block font-medium">תוחלת חיים ממוצעת</span>
+                <span className="text-gray-400 text-xs block font-medium">
+                  {isHe ? 'תוחלת חיים ממוצעת' : 'Average Lifespan'}
+                </span>
                 <span className="text-2xl font-bold text-white block mt-1">
-                  {stats.avgLifespan > 0 ? `${stats.avgLifespan} שנים` : 'אין מספיק מידע'}
+                  {stats.avgLifespan > 0
+                    ? isHe ? `${stats.avgLifespan} שנים` : `${stats.avgLifespan} yrs`
+                    : isHe ? 'אין מספיק מידע' : 'Insufficient data'}
                 </span>
               </div>
             </div>
 
             {/* Metric 3 */}
-            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center space-x-4 space-x-reverse relative overflow-hidden group hover:border-amber-500/30 transition-all duration-300">
+            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center gap-4 relative overflow-hidden group hover:border-amber-500/30 transition-all duration-300">
               <div className="absolute top-0 right-0 h-24 w-24 bg-amber-500/5 blur-3xl rounded-full" />
-              <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400">
+              <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400 flex-shrink-0">
                 <Clock className="h-6 w-6" />
               </div>
               <div>
-                <span className="text-gray-400 text-xs block font-medium">עשורי לידה מתועדים</span>
-                <span className="text-2xl font-bold text-white block mt-1">{stats.timelineData.length} עשורים</span>
+                <span className="text-gray-400 text-xs block font-medium">
+                  {isHe ? 'עשורי לידה מתועדים' : 'Recorded Birth Decades'}
+                </span>
+                <span className="text-2xl font-bold text-white block mt-1">
+                  {isHe ? `${stats.timelineData.length} עשורים` : `${stats.timelineData.length} decades`}
+                </span>
               </div>
             </div>
 
             {/* Metric 4 */}
-            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center space-x-4 space-x-reverse relative overflow-hidden group hover:border-pink-500/30 transition-all duration-300">
+            <div className="bg-gray-900/60 border border-gray-800/80 p-5 rounded-2xl flex items-center gap-4 relative overflow-hidden group hover:border-pink-500/30 transition-all duration-300">
               <div className="absolute top-0 right-0 h-24 w-24 bg-pink-500/5 blur-3xl rounded-full" />
-              <div className="p-3 bg-pink-500/10 rounded-xl text-pink-400">
+              <div className="p-3 bg-pink-500/10 rounded-xl text-pink-400 flex-shrink-0">
                 <Award className="h-6 w-6" />
               </div>
               <div>
-                <span className="text-gray-400 text-xs block font-medium">שמות משפחה שונים</span>
+                <span className="text-gray-400 text-xs block font-medium">
+                  {isHe ? 'שמות משפחה מובילים' : 'Top Surnames'}
+                </span>
                 <span className="text-2xl font-bold text-white block mt-1">{stats.topSurnames.length}+</span>
               </div>
             </div>
@@ -821,7 +901,7 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
             <div className="bg-gray-900/40 border border-gray-800/60 p-6 rounded-2xl flex flex-col h-[350px]">
               <h3 className="text-sm font-bold text-gray-200 mb-4 flex items-center gap-2">
                 <Clock className="h-4.5 w-4.5 text-indigo-400" />
-                התפלגות תוחלת החיים (גיל פטירה)
+                {isHe ? 'התפלגות תוחלת החיים (גיל פטירה)' : 'Lifespan Distribution (Age at Death)'}
               </h3>
               <div className="flex-1 w-full min-h-0 text-xs">
                 {stats.avgLifespan > 0 ? (
@@ -831,14 +911,14 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                       <XAxis dataKey="name" stroke="#9ca3af" />
                       <YAxis stroke="#9ca3af" allowDecimals={false} />
                       <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#4b5563', borderRadius: '8px', color: '#fff', textAlign: 'right' }} 
+                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#4b5563', borderRadius: '8px', color: '#fff', textAlign: isRTL ? 'right' : 'left' }} 
                       />
-                      <Bar dataKey="מספר אנשים" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={seriesKeys.peopleCount} fill="#6366f1" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500 italic">
-                    אין מספיק נתוני לידה ופטירה תואמים כדי להציג את התרשים.
+                    {isHe ? 'אין מספיק נתוני לידה ופטירה תואמים כדי להציג את התרשים.' : 'Not enough matching birth and death dates to display chart.'}
                   </div>
                 )}
               </div>
@@ -848,7 +928,7 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
             <div className="bg-gray-900/40 border border-gray-800/60 p-6 rounded-2xl flex flex-col h-[350px]">
               <h3 className="text-sm font-bold text-gray-200 mb-4 flex items-center gap-2">
                 <Award className="h-4.5 w-4.5 text-emerald-400" />
-                עשרת שמות המשפחה השכיחים ביותר
+                {isHe ? 'עשרת שמות המשפחה השכיחים ביותר' : 'Top 10 Most Frequent Surnames'}
               </h3>
               <div className="flex-1 w-full min-h-0 text-xs">
                 {stats.topSurnames.length > 0 ? (
@@ -858,14 +938,14 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                       <XAxis type="number" stroke="#9ca3af" allowDecimals={false} />
                       <YAxis dataKey="name" type="category" stroke="#9ca3af" width={80} />
                       <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#4b5563', borderRadius: '8px', color: '#fff', textAlign: 'right' }} 
+                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#4b5563', borderRadius: '8px', color: '#fff', textAlign: isRTL ? 'right' : 'left' }} 
                       />
-                      <Bar dataKey="שכיחות" fill="#10b981" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey={seriesKeys.surnameFreq} fill="#10b981" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500 italic">
-                    לא נמצאו שמות משפחה תקינים.
+                    {isHe ? 'לא נמצאו שמות משפחה תקינים.' : 'No valid surnames found.'}
                   </div>
                 )}
               </div>
@@ -878,7 +958,7 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
             <div className="bg-gray-900/40 border border-gray-800/60 p-6 rounded-2xl flex flex-col h-[350px] lg:col-span-2">
               <h3 className="text-sm font-bold text-gray-200 mb-4 flex items-center gap-2">
                 <TrendingUp className="h-4.5 w-4.5 text-indigo-400" />
-                מגמת לידות לאורך עשורי ההיסטוריה
+                {isHe ? 'מגמת לידות לאורך עשורי ההיסטוריה' : 'Birth Trends Across Historical Decades'}
               </h3>
               <div className="flex-1 w-full min-h-0 text-xs">
                 {stats.timelineData.length > 0 ? (
@@ -894,14 +974,14 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                       <XAxis dataKey="name" stroke="#9ca3af" />
                       <YAxis stroke="#9ca3af" allowDecimals={false} />
                       <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#4b5563', borderRadius: '8px', color: '#fff', textAlign: 'right' }} 
+                        contentStyle={{ backgroundColor: '#1f2937', borderColor: '#4b5563', borderRadius: '8px', color: '#fff', textAlign: isRTL ? 'right' : 'left' }} 
                       />
-                      <Area type="monotone" dataKey="לידות" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorBirths)" />
+                      <Area type="monotone" dataKey={seriesKeys.births} stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorBirths)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center text-gray-500 italic">
-                    אין מספיק נתוני לידה עם תאריכים.
+                    {isHe ? 'אין מספיק נתוני לידה עם תאריכים.' : 'Not enough dated birth records.'}
                   </div>
                 )}
               </div>
@@ -911,7 +991,7 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
             <div className="bg-gray-900/40 border border-gray-800/60 p-6 rounded-2xl flex flex-col h-[350px]">
               <h3 className="text-sm font-bold text-gray-200 mb-4 flex items-center gap-2">
                 <Users className="h-4.5 w-4.5 text-pink-400" />
-                התפלגות מגדרית של העץ
+                {isHe ? 'התפלגות מגדרית של העץ' : 'Family Tree Gender Distribution'}
               </h3>
               <div className="flex-grow flex items-center justify-center min-h-0 relative">
                 {stats.genderData.length > 0 ? (
@@ -950,7 +1030,9 @@ export const DemographicInsights: React.FC<DemographicInsightsProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="text-gray-500 italic">לא קיים מידע מגדרי בקובץ.</div>
+                  <div className="text-gray-500 italic">
+                    {isHe ? 'לא קיים מידע מגדרי בקובץ.' : 'No gender data available in file.'}
+                  </div>
                 )}
               </div>
             </div>

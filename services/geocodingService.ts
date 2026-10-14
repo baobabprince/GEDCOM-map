@@ -1,6 +1,7 @@
 import { geocodeSinglePlace } from './nominatimService.ts';
 import { geocodePlaces as geocodeWithServer, isStaticHost } from './geminiService.ts';
 import { KNOWN_LOCATIONS_DATABASE, findKnownLocation } from './knownLocations.ts';
+import { translations, type Language } from './i18n.ts';
 import type { ProgressState } from '../types.ts';
 
 const CACHE_KEY = 'gedcom_geocode_cache_v2';
@@ -67,6 +68,16 @@ export const clearGeocodeCache = () => {
   }
 };
 
+const getActiveTranslation = () => {
+  try {
+    const saved = localStorage.getItem('gedcom_visualizer_lang') as Language | null;
+    if (saved === 'en' || saved === 'he') return translations[saved];
+  } catch {
+    // ignore
+  }
+  return translations.he;
+};
+
 /**
  * High-speed geocoding engine:
  * 1. Instant 0ms lookup from built-in knowledge base (countries, capitals, common hubs).
@@ -81,9 +92,10 @@ export const geocode = async (
 ): Promise<{ name: string; lat: number; lon: number }[]> => {
   const totalPlaces = placeNames.length;
   if (totalPlaces === 0) return [];
+  const t = getActiveTranslation();
 
   if (onProgress) {
-    onProgress({ step: 'טוען מיקומים ממסד נתונים פנימי ומטמון מקומי...', current: 0, total: totalPlaces });
+    onProgress({ step: t.geocodeLoadingCache, current: 0, total: totalPlaces });
   }
 
   const cache = getGeocodeCache();
@@ -121,7 +133,7 @@ export const geocode = async (
   if (uncachedNames.length === 0) {
     if (onProgress) {
       onProgress({
-        step: `כל ${totalPlaces} המיקומים נמצאו באופן מיידי!`,
+        step: t.geocodeAllFoundInstant(totalPlaces),
         current: totalPlaces,
         total: totalPlaces,
       });
@@ -144,7 +156,7 @@ export const geocode = async (
     const chunk = remainingToResolve.slice(i, i + SERVER_CHUNK_SIZE);
     if (onProgress) {
       onProgress({
-        step: `מאתר קואורדינטות בשרת (קבוצה ${Math.floor(i / SERVER_CHUNK_SIZE) + 1})...`,
+        step: t.geocodeServerBatch(Math.floor(i / SERVER_CHUNK_SIZE) + 1),
         current: resolvedMap.size,
         total: totalPlaces,
       });
@@ -214,7 +226,7 @@ export const geocode = async (
         completedCount++;
         if (onProgress) {
           onProgress({
-            step: `מאתר קואורדינטות במהירות: ${name} (${resolvedMap.size}/${totalPlaces})`,
+            step: t.geocodeClientFast(name, resolvedMap.size, totalPlaces),
             current: resolvedMap.size,
             total: totalPlaces,
           });
@@ -235,7 +247,7 @@ export const geocode = async (
 
   if (onProgress) {
     onProgress({
-      step: `הושלם! נמצאו ${resolvedMap.size} מתוך ${totalPlaces} מיקומים.`,
+      step: t.geocodeComplete(resolvedMap.size, totalPlaces),
       current: totalPlaces,
       total: totalPlaces,
     });
