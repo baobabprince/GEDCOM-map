@@ -5,10 +5,11 @@ import tailwindcss from '@tailwindcss/vite';
 
 /**
  * Automatically determine the correct base URL for GitHub Pages or local environments.
+ * - In local dev server: base is always "/"
  * - When deployed on GitHub Actions: GITHUB_REPOSITORY is "owner/repo-name" -> base is "/repo-name/"
  * - If BASE_PATH is explicitly passed (e.g. from configure-pages): uses BASE_PATH
  * - For user/org root pages ("owner.github.io"): base is "/"
- * - For local development / preview: base is "./" or "/"
+ * - For standalone local builds: base is "./"
  */
 function getBasePath(): string {
   // 1. Explicit environment variable
@@ -32,15 +33,17 @@ function getBasePath(): string {
     }
   }
 
-  // 3. Fallback relative for local builds
+  // 3. Fallback relative for local static builds
   return './';
 }
 
-export default defineConfig({
-  base: getBasePath(),
+export default defineConfig(({ command }) => ({
+  // In dev / serve mode, base must be root "/" so Vite middleware resolves modules correctly
+  base: command === 'serve' ? '/' : getBasePath(),
   server: {
     port: 3000,
     host: '0.0.0.0',
+    hmr: false,
   },
   plugins: [
     react(),
@@ -51,4 +54,4 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
     }
   }
-});
+}));

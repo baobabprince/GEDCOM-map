@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
   const isProd = process.env.NODE_ENV === 'production';
 
   app.use(express.json({ limit: '10mb' }));
@@ -133,6 +133,11 @@ async function startServer() {
 
     return null;
   }
+
+  // GET /api/health - Dev server and platform readiness probe
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok' });
+  });
 
   // POST /api/geocode - Batch geocoding: Open Services first, Gemini as fallback
   app.post('/api/geocode', async (req, res) => {
@@ -341,7 +346,10 @@ ${eventsSummary || ''}
     });
   } else {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+      },
       appType: 'spa',
       root: __dirname,
       configFile: path.resolve(__dirname, 'vite.config.ts'),
