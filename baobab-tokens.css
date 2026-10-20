@@ -1,0 +1,76 @@
+/**
+ * baobab-tokens.css
+ * Design tokens extracted from anafim (ענפים)
+ */
+:root {
+  --bg: #f8f7f3;
+  --paper: #ffffff;
+  --paper-warm: #fefefb;
+  --sidebar-bg: #fefefa;
+  --canvas: #fafcf7;
+  --text: #29392f;
+  --muted: #82877e;
+  --subtle: #a4a79f;
+  --ink: #263f34;
+  --line: #e7e8e0;
+  --line-strong: #d6e2cd;
+  --green: #456352;
+  --green-deep: #315b48;
+  --green-light: #edf1e9;
+  --green-active: #e9f0e5;
+  --green-mid: #74975e;
+  --clay: #ac694c;
+  --clay-dark: #93583f;
+  --clay-light: #f8eee5;
+  --clay-mid: #a26642;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #a84332;
+  --info: #0ea5e9;
+  --male: #456352;
+  --female: #ac694c;
+  --unknown: #9ca3af;
+  --deceased: #6b7280;
+  --living: #059669;
+  --yahrzeit: #7c3aed;
+  --maternal-bg: #f8f1eb;
+  --maternal-border: #e7d8cb;
+  --paternal-bg: #f2f6ed;
+  --paternal-border: #d6e2cd;
+  --shadow: 0 4px 18px #29392f14;
+  --shadow-sm: 0 2px 7px #344d2508;
+  --font-sans: "Heebo", "Inter", system-ui, -apple-system, Arial, sans-serif;
+  --font-serif: "Noto Serif Hebrew", "Georgia", serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  --font-size-base: 14px;
+  --line-height: 1.6;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --focus-ring: #b47e59;
+}
+html {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: #e3d3bd; color: var(--text); }
+.baobab-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+.baobab-btn-primary {
+  background: var(--clay);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 1.25rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.baobab-btn-primary:hover { background: var(--clay-dark); }
