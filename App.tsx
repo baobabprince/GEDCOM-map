@@ -1365,6 +1365,20 @@ function AppContent() {
     } catch (_) {}
   }, [originalGedcom, persons]);
 
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('baobab') === 'shared') {
+        handleLoadShared();
+        params.delete('baobab');
+        const next = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (next ? '?' + next : '') + window.location.hash);
+      }
+    } catch (_) {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSampleData = useCallback(async () => {
     setOriginalGedcom(sampleGedcomData);
     await _processGedcomContent(sampleGedcomData);
