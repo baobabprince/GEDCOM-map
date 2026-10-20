@@ -50,8 +50,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, disabled, childre
 
   return (
     <div
-      className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors duration-300 
-        ${isDragging ? 'border-indigo-400 bg-indigo-900/30' : 'border-gray-600 hover:border-indigo-500'} 
+      className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-colors duration-300
+        ${isDragging ? 'border-[#ac694c] bg-[#f8eee5]' : 'border-[#d6e2cd] hover:border-[#456352] bg-[#fefefb]'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       onClick={handleClick}
       onDragEnter={(e) => handleDragEvents(e, true)}
@@ -69,14 +69,14 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, disabled, childre
       />
       <button
         type="button"
-        className="w-full flex items-center justify-center gap-2 font-semibold text-white cursor-pointer"
+        className="w-full flex items-center justify-center gap-2 font-semibold text-[#456352] cursor-pointer"
         disabled={disabled}
       >
         {children}
       </button>
-      <p className="text-xs text-gray-400 mt-2">{t.dragAndDropHint}</p>
+      <p className="text-xs text-[#82877e] mt-2">{t.dragAndDropHint}</p>
       {dropError && (
-        <p className="text-xs text-red-400 mt-2 font-medium">{dropError}</p>
+        <p className="text-xs text-[#a84332] mt-2 font-medium">{dropError}</p>
       )}
     </div>
   );
