@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Map as LeafletMap, LatLng } from 'leaflet';
 import { AppState, type Place, type Person, ViewMode, type ProgressState, FilterState } from './types.ts';
 import { parseGedcom } from './services/gedcomParser.ts';
+import { saveSharedExport, loadSharedExport, hasSharedExport, formatSharedSummary } from './services/baobabSharedStorage';
 import { geocode, saveGeocodeToCache, clearGeocodeCache, getGeocodeCache } from './services/geocodingService.ts';
 import { findKnownLocation } from './services/knownLocations.ts';
 import { generateGedcomWithCoords } from './services/gedcomGenerator.ts';
@@ -144,7 +145,7 @@ const LanguageSwitcher = ({ className = '' }: { className?: string }) => {
   );
 };
 
-const DataInputSection = ({ onFileSelect, onSampleSelect, onClearCache, hasCache, disabled }) => {
+const DataInputSection = ({ onFileSelect, onSampleSelect, onClearCache, hasCache, disabled, onLoadShared, onSaveShared, hasShared, sharedSummary }) => {
   const { t } = useLanguage();
   return (
     <div className="space-y-4">
@@ -164,6 +165,18 @@ const DataInputSection = ({ onFileSelect, onSampleSelect, onClearCache, hasCache
       >
         {t.trySampleData}
       </button>
+      <div className="mt-4 p-3 rounded-xl border border-[#e7e8e0] bg-[#fefefb] text-right">
+        <p className="text-[10px] font-semibold text-[#82877e] mb-1">שיתוף בין אפליקציות</p>
+        <p className="text-[10px] text-[#a4a79f] mb-2 truncate">{sharedSummary || 'אין נתונים משותפים עדיין'}</p>
+        <div className="flex gap-2 justify-end flex-wrap">
+          <button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-[#edf1e9] text-[#456352] disabled:opacity-40" disabled={!hasShared || disabled} onClick={() => onLoadShared?.()}>
+            טען מהשיתוף
+          </button>
+          <button type="button" className="text-xs px-3 py-1.5 rounded-lg bg-[#ac694c] text-white disabled:opacity-40" disabled={disabled} onClick={() => onSaveShared?.()}>
+            שמור לשיתוף
+          </button>
+        </div>
+      </div>
       {hasCache && (
         <button
           onClick={onClearCache}
@@ -560,6 +573,10 @@ const SidebarContent = ({
                 <DataInputSection
                   onFileSelect={onFileSelect}
                   onSampleSelect={onSampleSelect}
+                  onLoadShared={onLoadShared}
+                  onSaveShared={onSaveShared}
+                  hasShared={hasShared}
+                  sharedSummary={sharedSummary}
                   onClearCache={handleClearCache}
                   hasCache={hasCache}
                   disabled={appState === AppState.Processing}
@@ -931,6 +948,10 @@ const MobileLayout = props => {
           <DataInputSection
             onFileSelect={props.onFileSelect}
             onSampleSelect={props.onSampleSelect}
+            onLoadShared={props.onLoadShared}
+            onSaveShared={props.onSaveShared}
+            hasShared={props.hasShared}
+            sharedSummary={props.sharedSummary}
             onClearCache={props.handleClearCache}
             hasCache={props.hasCache}
             disabled={false}
@@ -1312,10 +1333,37 @@ function AppContent() {
     async (file: File) => {
       const content = await file.text();
       setOriginalGedcom(content);
+      try {
+        saveSharedExport({
+          source: 'GEDCOM-map',
+          filename: file.name,
+          gedcom: content,
+          meta: { title: file.name },
+        });
+      } catch (_) {}
       await _processGedcomContent(content);
     },
     [_processGedcomContent]
   );
+
+  const handleLoadShared = useCallback(async () => {
+    const shared = loadSharedExport();
+    if (!shared?.gedcom) return;
+    setOriginalGedcom(shared.gedcom);
+    await _processGedcomContent(shared.gedcom);
+  }, [_processGedcomContent]);
+
+  const handleSaveShared = useCallback(() => {
+    if (!originalGedcom) return;
+    try {
+      saveSharedExport({
+        source: 'GEDCOM-map',
+        filename: 'from-gedcom-map.ged',
+        gedcom: originalGedcom,
+        meta: { personCount: persons?.length },
+      });
+    } catch (_) {}
+  }, [originalGedcom, persons]);
 
   const handleSampleData = useCallback(async () => {
     setOriginalGedcom(sampleGedcomData);
@@ -1436,6 +1484,10 @@ function AppContent() {
     handleSampleData,
     handleStartOver,
     onFileSelect: handleFileProcess,
+    onLoadShared: handleLoadShared,
+    onSaveShared: handleSaveShared,
+    hasShared: hasSharedExport(),
+    sharedSummary: formatSharedSummary(loadSharedExport()),
     onSampleSelect: handleSampleData,
     originalGedcom,
     handleExportGedcom,
