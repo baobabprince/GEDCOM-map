@@ -1,0 +1,26 @@
+name: Bump geo cache
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/bump-geo-cache.py'
+      - '.github/workflows/bump-geo-cache.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/bump-geo-cache.py
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add services/geocodingService.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(geo): cache v3 (drop bad hits) + concurrency 2 for Nominatim"
+          git push origin HEAD:main
