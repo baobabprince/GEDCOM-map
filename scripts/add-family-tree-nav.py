@@ -2,11 +2,10 @@
 from pathlib import Path
 import re
 
-# Add a small link component and show it beside LanguageSwitcher usages in chrome
 COMPONENT = '''
 const FamilyTreeLink = ({ className = '' }: { className?: string }) => {
-  const { language } = useLanguage();
-  const he = language === 'he' || language === 'he-IL';
+  const { lang } = useLanguage();
+  const he = lang === 'he';
   return (
     <a
       href="https://baobabprince.github.io/anafim/"
@@ -24,43 +23,25 @@ const FamilyTreeLink = ({ className = '' }: { className?: string }) => {
 def main():
     p = Path('App.tsx')
     t = p.read_text()
-    if 'FamilyTreeLink' in t and 'אילן המשפחה' in t:
-        print('already')
+    if 'const FamilyTreeLink' in t and 'אילן המשפחה' in t and 'flex items-center gap-2"><LanguageSwitcher' in t:
+        print('already fully applied')
         return
 
-    # Insert component after LanguageSwitcher definition ends — find LanguageSwitcher const and next const
     if 'const FamilyTreeLink' not in t:
-        # Place before SidebarContent or after LanguageSwitcher function
         anchor = 'const SidebarContent = ({'
         if anchor not in t:
-            anchor = 'const DataInputSection'
-        if 'const LanguageSwitcher' in t and anchor in t:
-            # insert FamilyTreeLink before SidebarContent
-            t = t.replace(anchor, COMPONENT + '\n' + anchor, 1)
-            print('component added')
-        else:
-            raise SystemExit('anchors not found')
+            raise SystemExit('SidebarContent not found')
+        t = t.replace(anchor, COMPONENT + '\n' + anchor, 1)
+        print('component added')
 
-    # Wrap LanguageSwitcher appearances: <LanguageSwitcher /> -> flex with FamilyTreeLink
-    # Only for standalone LanguageSwitcher in headers (not if already wrapped)
-    def repl(m):
-        inner = m.group(0)
-        if 'FamilyTreeLink' in inner:
-            return inner
-        cls = m.group(1) or ''
-        return f'<div className="flex items-center gap-2">{inner}<FamilyTreeLink /></div>'
-
-    # Replace <LanguageSwitcher /> and <LanguageSwitcher className="..." />
-    t2, n = re.subn(
-        r'<LanguageSwitcher(\s+className="[^"]*")?\s*/>',
-        lambda m: f'<div className="flex items-center gap-2"><LanguageSwitcher{m.group(1) or ""} /><FamilyTreeLink /></div>',
-        t,
-    )
-    if n == 0:
-        print('no LanguageSwitcher self-closing found')
-    else:
+    if 'FamilyTreeLink />' not in t:
+        t2, n = re.subn(
+            r'<LanguageSwitcher(\s+className="[^"]*")?\s*/>',
+            lambda m: f'<div className="flex items-center gap-2"><LanguageSwitcher{m.group(1) or ""} /><FamilyTreeLink /></div>',
+            t,
+        )
+        print('wrapped', n)
         t = t2
-        print('wrapped', n, 'switchers')
 
     p.write_text(t)
     print('ok')
