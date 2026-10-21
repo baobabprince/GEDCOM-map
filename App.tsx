@@ -479,6 +479,23 @@ const FilterPanel = ({ availableEventTypes, fullDateRange, filters, onFilterChan
   );
 };
 
+
+const FamilyTreeLink = ({ className = '' }: { className?: string }) => {
+  const { lang } = useLanguage();
+  const he = lang === 'he';
+  return (
+    <a
+      href="https://baobabprince.github.io/anafim/"
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center text-xs px-2.5 py-1.5 rounded-md border border-slate-600/60 bg-slate-800/80 text-slate-100 hover:bg-slate-700 transition-colors no-underline ${className}`}
+      title={he ? 'פתיחת אותו אילן במבט משפחתי' : 'Open the same tree in family view'}
+    >
+      {he ? 'אילן המשפחה' : 'Family tree'}
+    </a>
+  );
+};
+
 const SidebarContent = ({
   appState,
   viewMode,
@@ -529,7 +546,7 @@ const SidebarContent = ({
             </h1>
             <p className="text-gray-400 text-xs mt-1">{t.appSubtitle}</p>
           </div>
-          <LanguageSwitcher />
+          <div className="flex items-center gap-2"><LanguageSwitcher /><FamilyTreeLink /></div>
         </div>
         {appState === AppState.Success && isGeocoding && (
           <div className="mt-3 p-2.5 bg-indigo-950/40 border border-indigo-800/30 rounded-xl text-xs text-indigo-200 flex flex-col space-y-1">
@@ -899,7 +916,7 @@ const DesktopLayout = props => {
                 <span>{t.tabInsights}</span>
               </button>
             </div>
-            <LanguageSwitcher />
+            <div className="flex items-center gap-2"><LanguageSwitcher /><FamilyTreeLink /></div>
           </div>
         )}
         <div className="flex-1 relative min-h-0">
@@ -941,7 +958,7 @@ const MobileLayout = props => {
         dir={isRTL ? 'rtl' : 'ltr'}
       >
         <div className="absolute top-4 right-4">
-          <LanguageSwitcher />
+          <div className="flex items-center gap-2"><LanguageSwitcher /><FamilyTreeLink /></div>
         </div>
         <div className="text-center p-6">
           <WorldIcon className="h-16 w-16 text-indigo-400 mb-4 mx-auto" />
@@ -1027,7 +1044,7 @@ const MobileLayout = props => {
                 <span>{t.tabInsightsShort}</span>
               </button>
             </div>
-            <LanguageSwitcher />
+            <div className="flex items-center gap-2"><LanguageSwitcher /><FamilyTreeLink /></div>
           </div>
         )}
         <div className="flex-1 relative min-h-0">
