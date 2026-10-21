@@ -2,71 +2,42 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main, master]
   workflow_dispatch:
 
-# Sets permissions to allow deployment via GitHub Actions OR pushing to gh-pages branch
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
-# Allow only one concurrent deployment
 concurrency:
-  group: 'pages'
-  cancel-in-progress: false
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   build-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
-      - name: Install dependencies
-        run: npm ci || npm install
+      - run: npm ci || npm install
 
-      - name: Setup GitHub Pages configuration
-        id: pages
-        uses: actions/configure-pages@v5
-        continue-on-error: true
-
-      - name: Build project with Vite
+      - name: Build
         run: npm run build
         env:
-          BASE_PATH: ${{ steps.pages.outputs.base_path || '' }}
+          BASE_PATH: /GEDCOM-map/
 
-      - name: Create 404.html for SPA routing fallback
-        run: cp dist/index.html dist/404.html
+      - name: Prepare dist
+        run: |
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
 
-      - name: Ensure .nojekyll exists in build output
-        run: touch dist/.nojekyll
-
-      - name: Deploy to gh-pages branch (fallback for "Deploy from a branch" setting)
+      - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
-        continue-on-error: true
-
-      - name: Upload artifact for GitHub Actions Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './dist'
-        continue-on-error: true
-
-      - name: Deploy to GitHub Pages (for "GitHub Actions" source setting)
-        id: deployment
-        uses: actions/deploy-pages@v4
-        continue-on-error: true
+          force_orphan: true
