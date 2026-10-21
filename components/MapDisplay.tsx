@@ -218,13 +218,13 @@ const LeafletPersonPath: React.FC<{ activePerson: Person | null; places: Place[]
                 <span className="text-[10px] font-bold text-orange-600 block uppercase tracking-wide">
                   {isFirst ? t.startPoint : isLast ? t.endPoint : t.waypoint(index + 1)}
                 </span>
-                <h4 className="font-bold text-sm text-gray-900 mt-0.5">{place.name}</h4>
-                <p className="text-xs text-gray-500 mb-2">{t.eventsForPersonPopup(activePerson.name)}</p>
+                <h4 className="font-extrabold text-base text-slate-900 mt-0.5">{place.name}</h4>
+                <p className="text-xs text-slate-600 mb-2">{t.eventsForPersonPopup(activePerson.name)}</p>
                 <ul className="space-y-1.5 text-xs max-h-48 overflow-y-auto">
                   {events.map((event, i) => (
-                    <li key={i} className="flex justify-between items-center gap-3 border-b border-gray-100 pb-1">
-                      <span className="font-semibold text-gray-800">{formatEventType(event.eventType, lang)}</span>
-                      <span className="text-gray-500 text-[11px]">{formatDate(event.date, lang)}</span>
+                    <li key={i} className="flex justify-between items-center gap-3 border-b border-slate-100 pb-1">
+                      <span className="font-semibold text-slate-800">{formatEventType(event.eventType, lang)}</span>
+                      <span className="text-slate-500 text-[11px]">{formatDate(event.date, lang)}</span>
                     </li>
                   ))}
                 </ul>
@@ -511,35 +511,35 @@ export const MapDisplay: React.FC<MapDisplayProps> = (props) => {
                 >
                   <Popup>
                     <div className={`p-1 min-w-[220px] ${isRTL ? 'text-right' : 'text-left'}`} dir={isRTL ? 'rtl' : 'ltr'}>
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <MapPin className="h-4 w-4 text-indigo-600 flex-shrink-0" />
-                        <h4 className="font-bold text-sm text-gray-900">{place.name}</h4>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <MapPin className="h-4.5 w-4.5 text-indigo-600 flex-shrink-0" />
+                        <h4 className="font-extrabold text-base text-slate-900 leading-tight">{place.name}</h4>
                       </div>
-                      <p className="text-[11px] text-gray-500 font-mono mb-2" dir="ltr">
+                      <p className="text-[10px] text-slate-500 font-mono mb-2.5" dir="ltr">
                         {latVal.toFixed(4)}°, {lonVal.toFixed(4)}°
                       </p>
                       
-                      <p className="text-xs font-semibold text-gray-700 mb-1 border-b pb-1">
+                      <p className="text-xs font-bold text-slate-700 mb-1 border-b border-slate-200 pb-1">
                         {t.eventsHereHeader}
                       </p>
                       
                       <ul className="space-y-2 text-xs max-h-52 overflow-y-auto px-1">
                         {groupedEvents.map((item) => (
-                          <li key={item.id} className="border-b border-gray-100 pb-1.5 last:border-b-0">
+                          <li key={item.id} className="border-b border-slate-100 pb-1.5 last:border-b-0">
                             <div className="flex justify-between items-center gap-2">
                               <span className="font-bold text-indigo-700 flex items-center gap-1">
                                 {item.isMarriage && <span>💍</span>}
                                 <span>{formatEventType(item.eventType, lang)}</span>
                               </span>
                               {item.date && (
-                                <span className="text-[11px] text-gray-500 font-medium">
+                                <span className="text-[11px] text-slate-500 font-medium">
                                   {formatDate(item.date, lang)}
                                 </span>
                               )}
                             </div>
 
                             {item.isMarriage && item.people.length > 1 ? (
-                              <div className="text-gray-700 text-xs mt-1 bg-indigo-50/70 p-1.5 rounded-lg border border-indigo-100">
+                              <div className="text-slate-700 text-xs mt-1 bg-indigo-50/70 p-1.5 rounded-lg border border-indigo-100">
                                 <span className="text-indigo-900 font-semibold block text-[11px] mb-0.5">
                                   {t.couplePopupLabel}
                                 </span>
@@ -550,7 +550,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = (props) => {
                                   >
                                     {item.people[0].name}
                                   </button>
-                                  <span className="text-gray-400 font-bold">♥</span>
+                                  <span className="text-slate-400 font-bold">♥</span>
                                   <button 
                                     onClick={() => onSelectPersonById(item.people[1].id)}
                                     className="font-bold text-indigo-700 hover:text-indigo-900 hover:underline cursor-pointer"
@@ -560,11 +560,11 @@ export const MapDisplay: React.FC<MapDisplayProps> = (props) => {
                                 </div>
                               </div>
                             ) : (
-                              <p className="text-gray-600 text-[11px] mt-0.5">
+                              <p className="text-slate-600 text-[11px] mt-0.5">
                                 {t.forPersonLabel}{' '}
                                 <button 
                                   onClick={() => onSelectPersonById(item.people[0].id)}
-                                  className="font-semibold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer"
+                                  className="font-semibold text-emerald-700 hover:text-emerald-800 hover:underline cursor-pointer"
                                 >
                                   {item.people[0].name}
                                 </button>
@@ -573,7 +573,7 @@ export const MapDisplay: React.FC<MapDisplayProps> = (props) => {
                           </li>
                         ))}
                       </ul>
-                      <p className="text-[10px] text-gray-400 mt-2 text-center">
+                      <p className="text-[10px] text-slate-400 mt-2 text-center">
                         {t.dragPinHint}
                       </p>
                     </div>
