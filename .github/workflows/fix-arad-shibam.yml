@@ -1,0 +1,26 @@
+name: Fix Arad Shabam geo
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/fix-arad-shibam.py'
+      - '.github/workflows/fix-arad-shibam.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix-arad-shibam.py
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add services/knownLocations.ts services/nominatimService.ts services/geocodingService.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(geo): ערד→Israel Negev, שבאם→Yemen Shibam (not Eilat); cache v4"
+          git push origin HEAD:main
