@@ -1,5 +1,38 @@
 import { findKnownLocation } from './knownLocations.ts';
 
+/** Hebrew city names that must resolve in Israel (not European namesakes). */
+const HEBREW_ISRAEL_CITIES: Record<string, { lat: number; lon: number }> = {
+  'ערד': { lat: 31.2589, lon: 35.2128 },
+  'אילת': { lat: 29.5577, lon: 34.9519 },
+  'דימונה': { lat: 31.0694, lon: 35.0333 },
+  'באר שבע': { lat: 31.2529, lon: 34.7915 },
+  'ירושלים': { lat: 31.7683, lon: 35.2137 },
+  'תל אביב': { lat: 32.0853, lon: 34.7818 },
+  'חיפה': { lat: 32.7940, lon: 34.9896 },
+};
+
+/** Yemen places — do not confuse with southern Israel. */
+const YEMEN_PLACES: Record<string, { lat: number; lon: number }> = {
+  'שבאם': { lat: 15.9269, lon: 48.6267 },
+  'שיבאם': { lat: 15.9269, lon: 48.6267 },
+  'שibam': { lat: 15.9269, lon: 48.6267 },
+  'צנעא': { lat: 15.3694, lon: 44.1910 },
+  'עדן': { lat: 12.7855, lon: 45.0187 },
+  shibam: { lat: 15.9269, lon: 48.6267 },
+  shabam: { lat: 15.9269, lon: 48.6267 },
+};
+
+const hardcodeHebrewOrYemen = (placeName: string): { lat: number; lon: number } | null => {
+  const n = placeName.trim().toLowerCase().replace(/["'״׳]/g, '');
+  const heKey = placeName.trim().split(',')[0].trim();
+  if (HEBREW_ISRAEL_CITIES[heKey]) return HEBREW_ISRAEL_CITIES[heKey];
+  if (YEMEN_PLACES[heKey]) return YEMEN_PLACES[heKey];
+  if (YEMEN_PLACES[n]) return YEMEN_PLACES[n];
+  if (/\barad\b/.test(n) && /israel|ישראל/.test(n)) return { lat: 31.2589, lon: 35.2128 };
+  if (/\b(shibam|shabam)\b/.test(n)) return { lat: 15.9269, lon: 48.6267 };
+  return null;
+};
+
 const fetchWithTimeout = async (
   url: string,
   options: RequestInit = {},
@@ -194,6 +227,11 @@ export const geocodeSinglePlace = async (
 ): Promise<{ name: string; lat: number; lon: number } | null> => {
   const trimmed = placeName.trim();
   if (!trimmed) return null;
+
+  const forced = hardcodeHebrewOrYemen(trimmed);
+  if (forced) {
+    return { name: placeName, lat: forced.lat, lon: forced.lon };
+  }
 
   const known = findKnownLocation(trimmed);
   if (known) return { name: placeName, lat: known.lat, lon: known.lon };

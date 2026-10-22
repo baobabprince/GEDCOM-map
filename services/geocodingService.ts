@@ -4,7 +4,7 @@ import { KNOWN_LOCATIONS_DATABASE, findKnownLocation } from './knownLocations.ts
 import { translations, type Language } from './i18n.ts';
 import type { ProgressState } from '../types.ts';
 
-const CACHE_KEY = 'gedcom_geocode_cache_v3';
+const CACHE_KEY = 'gedcom_geocode_cache_v4';
 const CLIENT_CONCURRENCY = 2;
 
 export interface CachedLocation {
@@ -64,6 +64,7 @@ export const clearGeocodeCache = () => {
     localStorage.removeItem(CACHE_KEY);
     localStorage.removeItem('gedcom_geocode_cache_v1');
     localStorage.removeItem('gedcom_geocode_cache_v2');
+    localStorage.removeItem('gedcom_geocode_cache_v3');
   } catch (e) {
     console.warn('Error clearing geocode cache:', e);
   }
