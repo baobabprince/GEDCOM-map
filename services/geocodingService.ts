@@ -5,6 +5,12 @@ import { translations, type Language } from './i18n.ts';
 import type { ProgressState } from '../types.ts';
 
 const CACHE_KEY = 'gedcom_geocode_cache_v4';
+
+/** Isolate cache per GEDCOM source file so trees don't mix pins. */
+const cacheKeyFor = (fileScope?: string | null) =>
+  fileScope && fileScope.trim()
+    ? `${CACHE_KEY}::${fileScope.trim().toLowerCase()}`
+    : CACHE_KEY;
 const CLIENT_CONCURRENCY = 2;
 
 export interface CachedLocation {
@@ -15,9 +21,9 @@ export interface CachedLocation {
 /**
  * Reads the geocode cache from localStorage, pre-populated with our instant known locations dictionary.
  */
-export const getGeocodeCache = (): Record<string, CachedLocation> => {
+export const getGeocodeCache = (fileScope?: string | null): Record<string, CachedLocation> => {
   try {
-    const stored = localStorage.getItem(CACHE_KEY);
+    const stored = localStorage.getItem(cacheKeyFor(fileScope));
     const parsed = stored ? JSON.parse(stored) : {};
     return { ...KNOWN_LOCATIONS_DATABASE, ...parsed };
   } catch (e) {
@@ -29,12 +35,13 @@ export const getGeocodeCache = (): Record<string, CachedLocation> => {
 /**
  * Saves a specific geocoded location to the persistent localStorage cache.
  */
-export const saveGeocodeToCache = (name: string, lat: number, lon: number) => {
+export const saveGeocodeToCache = (name: string, lat: number, lon: number, fileScope?: string | null) => {
   try {
-    const stored = localStorage.getItem(CACHE_KEY);
+    const key = cacheKeyFor(fileScope);
+    const stored = localStorage.getItem(key);
     const cache = stored ? JSON.parse(stored) : {};
     cache[name] = { lat, lon };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    localStorage.setItem(key, JSON.stringify(cache));
   } catch (e) {
     console.warn('Error saving geocode to cache:', e);
   }
@@ -43,14 +50,15 @@ export const saveGeocodeToCache = (name: string, lat: number, lon: number) => {
 /**
  * Saves multiple geocoded locations to the persistent cache at once.
  */
-export const saveMultipleGeocodesToCache = (results: { name: string; lat: number; lon: number }[]) => {
+export const saveMultipleGeocodesToCache = (results: { name: string; lat: number; lon: number }[], fileScope?: string | null) => {
   try {
-    const stored = localStorage.getItem(CACHE_KEY);
+    const key = cacheKeyFor(fileScope);
+    const stored = localStorage.getItem(key);
     const cache = stored ? JSON.parse(stored) : {};
     for (const r of results) {
       cache[r.name] = { lat: r.lat, lon: r.lon };
     }
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    localStorage.setItem(key, JSON.stringify(cache));
   } catch (e) {
     console.warn('Error saving batch geocodes to cache:', e);
   }
@@ -59,12 +67,21 @@ export const saveMultipleGeocodesToCache = (results: { name: string; lat: number
 /**
  * Clears the persistent geocoding cache.
  */
-export const clearGeocodeCache = () => {
+export const clearGeocodeCache = (fileScope?: string | null) => {
   try {
-    localStorage.removeItem(CACHE_KEY);
+    if (fileScope) {
+      localStorage.removeItem(cacheKeyFor(fileScope));
+    } else {
+      localStorage.removeItem(CACHE_KEY);
+      const prefix = CACHE_KEY + '::';
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(prefix)) localStorage.removeItem(k);
+      }
+    }
     localStorage.removeItem('gedcom_geocode_cache_v1');
     localStorage.removeItem('gedcom_geocode_cache_v2');
-    localStorage.removeItem('gedcom_geocode_cache_v3');
+    localStorage.removeItem('gedcom_geocode_cache_v4');
   } catch (e) {
     console.warn('Error clearing geocode cache:', e);
   }
@@ -100,7 +117,7 @@ export const geocode = async (
     onProgress({ step: t.geocodeLoadingCache, current: 0, total: totalPlaces });
   }
 
-  const cache = getGeocodeCache();
+  const cache = getGeocodeCache(fileScope);
   const cachedResults: { name: string; lat: number; lon: number }[] = [];
   const uncachedNames: string[] = [];
 
@@ -123,7 +140,7 @@ export const geocode = async (
   }
 
   if (newlyDiscoveredFromDictionary.length > 0) {
-    saveMultipleGeocodesToCache(newlyDiscoveredFromDictionary);
+    saveMultipleGeocodesToCache(newlyDiscoveredFromDictionary, fileScope);
   }
 
   // If initial cache results were found, stream them to the map immediately!
@@ -173,7 +190,7 @@ export const geocode = async (
 
       const serverResults = await Promise.race([serverPromise, timeoutPromise]);
       if (Array.isArray(serverResults) && serverResults.length > 0) {
-        saveMultipleGeocodesToCache(serverResults);
+        saveMultipleGeocodesToCache(serverResults, fileScope);
         for (const item of serverResults) {
           resolvedMap.set(item.name, item);
         }
@@ -210,7 +227,7 @@ export const geocode = async (
           if (res) {
             resolvedMap.set(name, res);
             clientBatchBuffer.push(res);
-            saveGeocodeToCache(res.name, res.lat, res.lon);
+            saveGeocodeToCache(res.name, res.lat, res.lon, fileScope);
 
             // Stream resolved places in real-time batches of 2 or immediately
             if (clientBatchBuffer.length >= 2) {
@@ -243,7 +260,7 @@ export const geocode = async (
     // Flush any remaining buffered places
     if (clientBatchBuffer.length > 0 && onBatchResolved) {
       onBatchResolved(clientBatchBuffer);
-      saveMultipleGeocodesToCache(clientBatchBuffer);
+      saveMultipleGeocodesToCache(clientBatchBuffer, fileScope);
     }
   }
 

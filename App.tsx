@@ -501,6 +501,7 @@ const SidebarContent = ({
   viewMode,
   setViewMode,
   persons,
+  sourceFilename,
   mappedPlaces,
   unmappedPlaces,
   activePerson,
@@ -534,6 +535,8 @@ const SidebarContent = ({
   progress,
 }) => {
   const { t, isRTL } = useLanguage();
+
+  const [mappedCollapsed, setMappedCollapsed] = useState(true);
 
   return (
     <>
@@ -685,14 +688,21 @@ const SidebarContent = ({
                 <div>
                   {viewMode === ViewMode.Location ? (
                     <div className="space-y-6">
+                      {sourceFilename && (
+                        <p className="text-[11px] text-gray-400 truncate" title={sourceFilename}>
+                          קובץ: {sourceFilename}
+                        </p>
+                      )}
                       {mappedPlaces.length > 0 && (
                         <div>
-                          <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2 mb-3">
+                          <button type="button" onClick={() => setMappedCollapsed(c => !c)} className="w-full text-sm font-semibold text-gray-200 flex items-center gap-2 mb-3 cursor-pointer hover:text-white">
                             <ListIcon className="h-4 w-4 text-gray-400" />
-                            <span>
+                            <span className="flex-1 text-start">
                               {t.mappedLocations} ({mappedPlaces.length})
                             </span>
-                          </h2>
+                            <span className="text-xs text-gray-400">{mappedCollapsed ? '▸' : '▾'}</span>
+                          </button>
+                          {!mappedCollapsed && (
                           <ul className="space-y-2">
                             {mappedPlaces.map(place => (
                               <li
@@ -707,12 +717,13 @@ const SidebarContent = ({
                               </li>
                             ))}
                           </ul>
+                          )}
                         </div>
                       )}
                       {unmappedPlaces.length > 0 && (
                         <div>
-                          <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2 mb-3 border-t border-gray-700 pt-4">
-                            <MapPinIcon className="h-4 w-4 text-gray-500" />
+                          <h2 className="text-sm font-semibold text-amber-200/90 flex items-center gap-2 mb-3">
+                            <MapPinIcon className="h-4 w-4 text-amber-400" />
                             <span>
                               {t.unmappedLocations} ({unmappedPlaces.length})
                             </span>
@@ -1080,6 +1091,7 @@ function AppContent() {
   const [appState, setAppState] = useState<AppState>(AppState.Initial);
   const [originalGedcom, setOriginalGedcom] = useState<string | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
+  const [sourceFilename, setSourceFilename] = useState<string | null>(null);
   const [persons, setPersons] = useState<Person[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Location);
@@ -1117,7 +1129,10 @@ function AppContent() {
   const isMobile = useIsMobile();
 
   const _processGedcomContent = useCallback(
-    async (content: string) => {
+    async (content: string, fileScope?: string | null) => {
+      const scope = (fileScope || sourceFilename || 'session') as string;
+      if (fileScope) setSourceFilename(fileScope);
+
       const taskId = ++geocodeTaskIdRef.current;
       setIsGeocoding(false);
 
@@ -1188,7 +1203,7 @@ function AppContent() {
         }
 
         // 1. Instantly load any coordinates that already exist in our local cache or instant dictionary
-        const cache = getGeocodeCache();
+        const cache = getGeocodeCache(scope);
         const initialPlaces: Place[] = rawPlaceNames
           .map(name => {
             const coords = cache[name] || findKnownLocation(name);
@@ -1239,7 +1254,8 @@ function AppContent() {
                 return changed ? updated : prevPlaces;
               });
               setHasCache(true);
-            }
+            },
+            scope
           )
             .then(() => {
               if (taskId !== geocodeTaskIdRef.current) return;
@@ -1338,6 +1354,7 @@ function AppContent() {
     setAppState(AppState.Initial);
     setOriginalGedcom(null);
     setPlaces([]);
+    setSourceFilename(null);
     setPersons([]);
     setError(null);
     setActivePlace(null);
@@ -1353,6 +1370,7 @@ function AppContent() {
   const handleFileProcess = useCallback(
     async (file: File) => {
       const content = await file.text();
+      setSourceFilename(file.name);
       setOriginalGedcom(content);
       try {
         saveSharedExport({
@@ -1362,7 +1380,7 @@ function AppContent() {
           meta: { title: file.name },
         });
       } catch (_) {}
-      await _processGedcomContent(content);
+      await _processGedcomContent(content, file.name);
     },
     [_processGedcomContent]
   );
@@ -1370,8 +1388,10 @@ function AppContent() {
   const handleLoadShared = useCallback(async () => {
     const shared = loadSharedExport();
     if (!shared?.gedcom) return;
+    const fname = shared.filename || 'shared.ged';
+    setSourceFilename(fname);
     setOriginalGedcom(shared.gedcom);
-    await _processGedcomContent(shared.gedcom);
+    await _processGedcomContent(shared.gedcom, fname);
   }, [_processGedcomContent]);
 
   const handleSaveShared = useCallback(() => {
@@ -1401,8 +1421,9 @@ function AppContent() {
   }, []);
 
   const handleSampleData = useCallback(async () => {
+    setSourceFilename('sample.ged');
     setOriginalGedcom(sampleGedcomData);
-    await _processGedcomContent(sampleGedcomData);
+    await _processGedcomContent(sampleGedcomData, 'sample.ged');
   }, [_processGedcomContent]);
 
   const handleExportGedcom = useCallback(() => {
@@ -1504,6 +1525,7 @@ function AppContent() {
     setViewMode,
     activePlace: activePlaceWithFilteredEvents,
     activePerson: activePersonWithFilteredEvents,
+    sourceFilename,
     mappedPlaces: filteredMappedPlaces,
     unmappedPlaces: filteredUnmappedPlaces,
     filteredPlaces,
