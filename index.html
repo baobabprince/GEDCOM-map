@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      // Immediate trailing slash enforcement for GitHub Pages subdirectories
+      // Prevents relative assets from resolving to the parent root domain (404)
+      (function() {
+        var host = window.location.hostname;
+        var path = window.location.pathname;
+        if (host.indexOf('github.io') !== -1 && !path.endsWith('/') && !path.split('/').pop().includes('.')) {
+          window.location.replace(path + '/' + window.location.search + window.location.hash);
+        }
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="./vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GEDCOM Map Visualizer</title>
+    <meta name="description" content="Upload a GEDCOM file to parse all geographical locations mentioned within it and visualize them on an interactive world map. The app uses AI to geocode the place names." />
+    <meta property="og:title" content="GEDCOM Map Visualizer" />
+    <meta property="og:description" content="Upload a GEDCOM file to parse all geographical locations mentioned within it and visualize them on an interactive world map. The app uses AI to geocode the place names." />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script type="module" crossorigin src="/GEDCOM-map/assets/index-uqGwu754.js"></script>
+    <link rel="stylesheet" crossorigin href="/GEDCOM-map/assets/index-DJVmDonX.css">
+  </head>
+  <body class="bg-gray-900 text-white">
+    <div id="root">
+      <noscript>
+        <div style="padding: 2rem; text-align: center; font-family: sans-serif; color: white;">
+          יש להפעיל JavaScript כדי להשתמש באפליקציה זו.
+        </div>
+      </noscript>
+      <!-- Visible only if unbuilt repository files are served directly on GitHub Pages before React boots -->
+      <script>
+        if (window.location.hostname.indexOf('github.io') !== -1) {
+          setTimeout(function() {
+            var rootEl = document.getElementById('root');
+            // If React hasn't rendered (e.g. unbuilt .tsx was served directly by GitHub Pages)
+            if (rootEl && (!rootEl.firstElementChild || rootEl.firstElementChild.tagName === 'NOSCRIPT' || rootEl.firstElementChild.tagName === 'SCRIPT')) {
+              var helpDiv = document.createElement('div');
+              helpDiv.dir = 'rtl';
+              helpDiv.style.cssText = 'min-height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #0f172a; color: white; font-family: system-ui, -apple-system, sans-serif; padding: 24px; text-align: center; box-sizing: border-box;';
+              helpDiv.innerHTML = `
+                <div style="max-width: 600px; background: #1e293b; padding: 36px 28px; border-radius: 16px; border: 1px solid #334155; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+                  <div style="font-size: 52px; margin-bottom: 16px;">⚙️</div>
+                  <h1 style="font-size: 22px; font-weight: 800; margin-bottom: 14px; color: #f8fafc;">נדרש שינוי הגדרה קצר ב-GitHub Pages</h1>
+                  <p style="color: #cbd5e1; font-size: 15px; line-height: 1.6; margin-bottom: 24px;">
+                    דף ה-GitHub Pages מוגדר כרגע להציג את ענף <b>main</b> הלא-מקומפל, ולכן הדפדפן מקבל שגיאת MIME type על קובץ TypeScript.<br/>
+                    כדי שהאתר יפעל, יש לבחור באחת משתי האפשרויות הבאות ב-GitHub:
+                  </p>
+                  <div style="background: #0f172a; padding: 20px; border-radius: 12px; text-align: right; border: 1px solid #334155; margin-bottom: 20px; font-size: 14px; line-height: 1.9;">
+                    <strong style="color: #38bdf8; display: block; margin-bottom: 6px; font-size: 15px;">אפשרות מומלצת (פריסה אוטומטית):</strong>
+                    1. היכנסו למאגר שלכם ב-GitHub ➔ <b>Settings</b> ➔ <b>Pages</b><br/>
+                    2. תחת <b>Build and deployment</b> ➔ <b>Source</b>, שנו ל-<b>GitHub Actions</b>.<br/>
+                    <hr style="border: 0; border-top: 1px solid #334155; margin: 12px 0;"/>
+                    <strong style="color: #a78bfa; display: block; margin-bottom: 6px; font-size: 15px;">אפשרות חלופית (ענף מובנה):</strong>
+                    אם נשארים ב-"Deploy from a branch", שנו את ה-<b>Branch</b> מ-main לענף <b>gh-pages</b>.
+                  </div>
+                  <p style="color: #64748b; font-size: 13px; margin: 0;">שינוי זה מתבצע פעם אחת בלבד, ומרגע זה האתר יפעל ויתעדכן אוטומטית בכל שינוי.</p>
+                </div>
+              `;
+              rootEl.appendChild(helpDiv);
+            }
+          }, 1200);
+        }
+      </script>
+    </div>
+  </body>
+</html>
