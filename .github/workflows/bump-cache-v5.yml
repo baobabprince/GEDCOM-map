@@ -1,0 +1,26 @@
+name: Bump cache v5
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/bump-cache-v5.py'
+      - '.github/workflows/bump-cache-v5.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/bump-cache-v5.py
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add services/geocodingService.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(geo): cache v5 — drop poisoned street-level hits"
+          git push origin HEAD:main
