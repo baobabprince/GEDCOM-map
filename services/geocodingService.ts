@@ -4,7 +4,7 @@ import { KNOWN_LOCATIONS_DATABASE, findKnownLocation } from './knownLocations.ts
 import { translations, type Language } from './i18n.ts';
 import type { ProgressState } from '../types.ts';
 
-const CACHE_KEY = 'gedcom_geocode_cache_v4';
+const CACHE_KEY = 'gedcom_geocode_cache_v5';
 
 /** Isolate cache per GEDCOM source file so trees don't mix pins. */
 const cacheKeyFor = (fileScope?: string | null) =>
@@ -82,6 +82,7 @@ export const clearGeocodeCache = (fileScope?: string | null) => {
     localStorage.removeItem('gedcom_geocode_cache_v1');
     localStorage.removeItem('gedcom_geocode_cache_v2');
     localStorage.removeItem('gedcom_geocode_cache_v4');
+    localStorage.removeItem('gedcom_geocode_cache_v5');
   } catch (e) {
     console.warn('Error clearing geocode cache:', e);
   }
