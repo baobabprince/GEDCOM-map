@@ -1,0 +1,26 @@
+name: Fix geocode scope param
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/fix-geocode-scope-param.py'
+      - '.github/workflows/fix-geocode-scope.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix-geocode-scope-param.py
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add services/geocodingService.ts
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(geo): add fileScope parameter to geocode()"
+          git push origin HEAD:main
