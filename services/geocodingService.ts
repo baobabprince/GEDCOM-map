@@ -107,7 +107,8 @@ const getActiveTranslation = () => {
 export const geocode = async (
   placeNames: string[],
   onProgress?: (progress: ProgressState) => void,
-  onBatchResolved?: (resolved: { name: string; lat: number; lon: number }[]) => void
+  onBatchResolved?: (resolved: { name: string; lat: number; lon: number }[]) => void,
+  fileScope?: string | null
 ): Promise<{ name: string; lat: number; lon: number }[]> => {
   const totalPlaces = placeNames.length;
   if (totalPlaces === 0) return [];
