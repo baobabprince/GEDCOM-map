@@ -1,0 +1,23 @@
+name: Fix knownLocations comma
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/fix-known-locations-comma2.py'
+      - '.github/workflows/fix-kl-comma.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/fix-known-locations-comma2.py
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add services/knownLocations.ts
+          git diff --cached --quiet && echo no-changes && exit 0
+          git commit -m "fix(build): remove stray comma in knownLocations.ts"
+          git push origin HEAD:main
