@@ -460,7 +460,6 @@ export const KNOWN_LOCATIONS_DATABASE: Record<string, LocationCoords> = {
   'aden, yemen': { lat: 12.7855, lon: 45.0187 },
   'תימן': { lat: 15.5527, lon: 48.5164 },
   'yemen': { lat: 15.5527, lon: 48.5164 },
-,
 
   'בגדד': { lat: 33.3152, lon: 44.3661 },
   'בגדאד': { lat: 33.3152, lon: 44.3661 },
