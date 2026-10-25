@@ -212,7 +212,7 @@ const PersonDetailView = ({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 pb-3 border-b border-gray-700 mb-4 flex-shrink-0">
+      <div className="flex items-center gap-2 pb-3 border-b border-gray-700 mb-2 flex-shrink-0">
         <button
           onClick={onBack}
           className="p-1.5 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
@@ -223,6 +223,9 @@ const PersonDetailView = ({
         <h2 className="text-lg font-semibold truncate" title={person.name}>
           {person.name}
         </h2>
+      </div>
+      <div className="flex-shrink-0 mb-3">
+        <PersonInTreeLink personName={person.name} />
       </div>
       <div className="flex-grow overflow-y-auto min-h-0">
         <h3 className="text-sm font-semibold text-gray-300 mb-3">{t.timelineTitle}</h3>
@@ -480,12 +483,15 @@ const FilterPanel = ({ availableEventTypes, fullDateRange, filters, onFilterChan
 };
 
 
+const ANAFIM_URL = 'https://baobabprince.github.io/anafim/';
+
+/** Compact chip for top bars next to language switcher */
 const FamilyTreeLink = ({ className = '' }: { className?: string }) => {
   const { lang } = useLanguage();
   const he = lang === 'he';
   return (
     <a
-      href="https://baobabprince.github.io/anafim/"
+      href={ANAFIM_URL}
       target="_blank"
       rel="noopener noreferrer"
       className={`inline-flex items-center text-xs px-2.5 py-1.5 rounded-md border border-slate-600/60 bg-slate-800/80 text-slate-100 hover:bg-slate-700 transition-colors no-underline ${className}`}
@@ -495,6 +501,50 @@ const FamilyTreeLink = ({ className = '' }: { className?: string }) => {
     </a>
   );
 };
+
+/** Full-width nav row for sidebar (desktop) */
+const FamilyTreeNavRow = () => {
+  const { lang, isRTL } = useLanguage();
+  const he = lang === 'he';
+  return (
+    <a
+      href={ANAFIM_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`mt-3 flex items-center gap-2 w-full px-3 py-2 rounded-lg border border-indigo-500/30 bg-indigo-950/40 text-indigo-100 hover:bg-indigo-900/50 transition-colors no-underline text-sm`}
+      title={he ? 'פתיחת אותו אילן במבט משפחתי' : 'Open the same tree in family view'}
+    >
+      <span className="text-base leading-none" aria-hidden>
+        🌳
+      </span>
+      <span className="font-medium">{he ? 'מעבר לאילן המשפחה' : 'Open family tree view'}</span>
+      <span className={`text-indigo-400/80 text-xs ${isRTL ? 'mr-auto' : 'ml-auto'}`}>
+        {he ? 'ענפים ↗' : 'Anafim ↗'}
+      </span>
+    </a>
+  );
+};
+
+/** Link from a person's timeline to Anafim */
+const PersonInTreeLink = ({ personName }: { personName: string }) => {
+  const { lang } = useLanguage();
+  const he = lang === 'he';
+  const href = `${ANAFIM_URL}?q=${encodeURIComponent(personName)}`;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-3 inline-flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg border border-teal-600/40 bg-teal-950/30 text-teal-100 hover:bg-teal-900/40 transition-colors no-underline text-xs font-medium"
+      title={he ? 'פתיחת האדם הזה באילן המשפחה' : 'Open this person in the family tree view'}
+    >
+      <span aria-hidden>🌳</span>
+      {he ? `הצג את ${personName.split(' ')[0]} באילן המשפחה` : `View in family tree`}
+      <span className="opacity-70">↗</span>
+    </a>
+  );
+};
+
 
 const SidebarContent = ({
   appState,
@@ -549,8 +599,9 @@ const SidebarContent = ({
             </h1>
             <p className="text-gray-400 text-xs mt-1">{t.appSubtitle}</p>
           </div>
-          <div className="flex items-center gap-2"><LanguageSwitcher /><FamilyTreeLink /></div>
+          <LanguageSwitcher />
         </div>
+        <FamilyTreeNavRow />
         {appState === AppState.Success && isGeocoding && (
           <div className="mt-3 p-2.5 bg-indigo-950/40 border border-indigo-800/30 rounded-xl text-xs text-indigo-200 flex flex-col space-y-1">
             <div className="flex items-center justify-between gap-2">
