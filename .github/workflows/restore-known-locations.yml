@@ -1,0 +1,54 @@
+name: Restore knownLocations
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/restore-known-locations.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore and fix knownLocations.ts
+        run: |
+          set -e
+          # Prefer a known-good historical blob, then strip any double commas
+          if git cat-file -e 633015b2b416113f7642788343707d7bf2e610af^{commit} 2>/dev/null; then
+            git show 633015b2b416113f7642788343707d7bf2e610af:services/knownLocations.ts > services/knownLocations.ts
+          else
+            echo 'commit not found, trying origin history'
+            git log --all --oneline -- services/knownLocations.ts | head
+            GOOD=$(git log --all --pretty=format:%H -- services/knownLocations.ts | while read h; do
+              git show "$h:services/knownLocations.ts" 2>/dev/null | head -1 | grep -q PLACEHOLDER && continue
+              echo "$h"
+              break
+            done)
+            echo "using $GOOD"
+            git show "$GOOD:services/knownLocations.ts" > services/knownLocations.ts
+          fi
+          python3 - <<'PY'
+from pathlib import Path
+import re
+p = Path('services/knownLocations.ts')
+t = p.read_text()
+if t.strip() == 'PLACEHOLDER_WILL_FAIL' or 'PLACEHOLDER' in t[:50]:
+    raise SystemExit('still placeholder')
+t2, n = re.subn(r'\},\s*,', '},', t)
+p.write_text(t2)
+print(f'restored, fixed {n} double-commas, size={len(t2)}')
+PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add services/knownLocations.ts
+          git diff --cached --quiet && echo no-changes && exit 0
+          git commit -m "fix(build): restore knownLocations.ts and remove double commas"
+          git push origin HEAD:main
