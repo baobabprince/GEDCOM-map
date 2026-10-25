@@ -4,7 +4,7 @@ import { KNOWN_LOCATIONS_DATABASE, findKnownLocation } from './knownLocations.ts
 import { translations, type Language } from './i18n.ts';
 import type { ProgressState } from '../types.ts';
 
-const CACHE_KEY = 'gedcom_geocode_cache_v6';
+const CACHE_KEY = 'gedcom_geocode_cache_v7';
 
 /** Isolate cache per GEDCOM source file so trees don't mix pins. */
 const cacheKeyFor = (fileScope?: string | null) =>
@@ -84,6 +84,7 @@ export const clearGeocodeCache = (fileScope?: string | null) => {
     localStorage.removeItem('gedcom_geocode_cache_v4');
     localStorage.removeItem('gedcom_geocode_cache_v5');
     localStorage.removeItem('gedcom_geocode_cache_v6');
+    localStorage.removeItem('gedcom_geocode_cache_v7');
   } catch (e) {
     console.warn('Error clearing geocode cache:', e);
   }
@@ -104,7 +105,7 @@ const getActiveTranslation = () => {
  * 1. Instant 0ms lookup from built-in knowledge base (countries, capitals, common hubs).
  * 2. Instant localStorage cache lookup.
  * 3. Fast server-side proxy route (/api/geocode) if available with short timeout.
- * 4. High-concurrency client-side parallel workers (Photon + Open-Meteo) with progressive real-time map rendering.
+ * 4. High-concurrency client-side parallel workers (Open-Meteo on Pages; Photon+Nominatim when CORS allows).
  */
 export const geocode = async (
   placeNames: string[],
