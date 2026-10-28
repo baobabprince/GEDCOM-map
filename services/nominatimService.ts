@@ -406,10 +406,11 @@ export const geocodeSinglePlace = async (
   const candidates = getGeocodingCandidates(trimmed);
   const preferHe = hasHebrew(trimmed) && !isMostlyLatin(trimmed);
   const allHits: Hit[] = [];
-  // On GitHub Pages both Nominatim and Photon block browser CORS (or time out).
+  // On GitHub Pages Nominatim usually blocks browser CORS.
+  // Photon (komoot) allows CORS (*) and works well for Hebrew place names — keep it enabled.
   const staticHost = isStaticHost();
   const skipNominatim = staticHost;
-  const skipPhoton = staticHost;
+  const skipPhoton = false;
 
   if (!skipPhoton) {
     for (const query of candidates.slice(0, 3)) {
