@@ -113,13 +113,6 @@ const FORCED_CITIES: Record<string, { lat: number; lon: number }> = {
   'auschwitz, poland': { lat: 50.0359, lon: 19.1783 },
   'אושוויץ': { lat: 50.0359, lon: 19.1783 },
   oswiecim: { lat: 50.0359, lon: 19.1783 },
-  // Bełżec (death camp / town in Poland) — must not resolve to Belz yeshiva in Israel
-  belzec: { lat: 50.3719, lon: 23.4675 },
-  'bełżec': { lat: 50.3719, lon: 23.4675 },
-  'belzec, poland': { lat: 50.3719, lon: 23.4675 },
-  "בלזץ'": { lat: 50.3719, lon: 23.4675 },
-  'בלזץ׳': { lat: 50.3719, lon: 23.4675 },
-  'בלזץ': { lat: 50.3719, lon: 23.4675 },
   chrzanow: { lat: 50.1414, lon: 19.4020 },
   trzebinia: { lat: 50.1590, lon: 19.4690 },
   sanok: { lat: 49.5550, lon: 22.2050 },
@@ -147,10 +140,6 @@ const FORCED_CITIES: Record<string, { lat: number; lon: number }> = {
 const hardcodePlace = (placeName: string): { lat: number; lon: number } | null => {
   const n = placeName.trim().toLowerCase().replace(/[\"'\u05f4\u05f3\u05f3]/g, "'");
   const heKey = placeName.trim().split(',')[0].trim();
-  // Bełżec (Poland) before Belz (Ukraine / Israeli yeshiva) — name contains צ
-  if (/בלזץ|belzec|bełżec|bełzec/.test(n) || /בלזץ/.test(heKey)) {
-    return { lat: 50.3719, lon: 23.4675 };
-  }
   if (HEBREW_ISRAEL_CITIES[heKey]) return HEBREW_ISRAEL_CITIES[heKey];
   if (YEMEN_PLACES[heKey]) return YEMEN_PLACES[heKey];
   if (YEMEN_PLACES[n]) return YEMEN_PLACES[n];
@@ -257,8 +246,19 @@ const isStreetLike = (label: string, osmClass?: string, osmType?: string): boole
 
 const isSettlementLike = (osmClass?: string, osmType?: string): boolean => {
   if (!osmClass && !osmType) return false;
-  if (osmClass === 'place' && osmType && /^(city|town|village|hamlet|municipality|suburb)$/.test(osmType)) return true;
+  if (osmClass === 'place' && osmType && /^(city|town|village|hamlet|municipality|suburb|neighbourhood|quarter)$/.test(osmType)) return true;
   if (osmClass === 'boundary' && osmType === 'administrative') return true;
+  return false;
+};
+
+/** Yeshiva, school, hospital, bus stop, shop, etc. — prefer real settlements over these. */
+const isInstitutionLike = (label: string, osmClass?: string, osmType?: string): boolean => {
+  const l = label.toLowerCase();
+  if (/ישיב|ישיבה|בית כנסת|בית ספר|בית חולים|מרפאה|תחנה|yeshiva|synagogue|school|hospital|clinic|bus[_ ]?stop/i.test(l)) return true;
+  if (osmClass === 'amenity') return true;
+  if (osmClass === 'building' && osmType && /^(yes|school|university|college|church|synagogue)$/.test(osmType)) return true;
+  if (osmClass === 'highway' && osmType === 'bus_stop') return true;
+  if (osmType && /^(school|place_of_worship|hospital|clinic|bus_stop|university|college)$/.test(osmType)) return true;
   return false;
 };
 
@@ -432,9 +432,10 @@ const rankHits = (query: string, hits: Hit[]): Hit | null => {
         else if (hitInIsraelArea) score -= 0.5;
       }
 
-      // Softened street penalty (was -0.85)
-      if (isStreetLike(h.label, h.osmClass, h.osmType)) score -= 0.45;
-      if (isSettlementLike(h.osmClass, h.osmType)) score += 0.4;
+      // Prefer settlements/admin areas over streets and institutions (yeshiva, bus stop, etc.)
+      if (isStreetLike(h.label, h.osmClass, h.osmType)) score -= 0.55;
+      if (isInstitutionLike(h.label, h.osmClass, h.osmType)) score -= 0.7;
+      if (isSettlementLike(h.osmClass, h.osmType)) score += 0.55;
       return { ...h, score };
     })
     .filter(h => h.score > -4)
