@@ -113,6 +113,13 @@ const FORCED_CITIES: Record<string, { lat: number; lon: number }> = {
   'auschwitz, poland': { lat: 50.0359, lon: 19.1783 },
   'אושוויץ': { lat: 50.0359, lon: 19.1783 },
   oswiecim: { lat: 50.0359, lon: 19.1783 },
+  // Bełżec (death camp / town in Poland) — must not resolve to Belz yeshiva in Israel
+  belzec: { lat: 50.3719, lon: 23.4675 },
+  'bełżec': { lat: 50.3719, lon: 23.4675 },
+  'belzec, poland': { lat: 50.3719, lon: 23.4675 },
+  "בלזץ'": { lat: 50.3719, lon: 23.4675 },
+  'בלזץ׳': { lat: 50.3719, lon: 23.4675 },
+  'בלזץ': { lat: 50.3719, lon: 23.4675 },
   chrzanow: { lat: 50.1414, lon: 19.4020 },
   trzebinia: { lat: 50.1590, lon: 19.4690 },
   sanok: { lat: 49.5550, lon: 22.2050 },
@@ -140,6 +147,10 @@ const FORCED_CITIES: Record<string, { lat: number; lon: number }> = {
 const hardcodePlace = (placeName: string): { lat: number; lon: number } | null => {
   const n = placeName.trim().toLowerCase().replace(/[\"'\u05f4\u05f3\u05f3]/g, "'");
   const heKey = placeName.trim().split(',')[0].trim();
+  // Bełżec (Poland) before Belz (Ukraine / Israeli yeshiva) — name contains צ
+  if (/בלזץ|belzec|bełżec|bełzec/.test(n) || /בלזץ/.test(heKey)) {
+    return { lat: 50.3719, lon: 23.4675 };
+  }
   if (HEBREW_ISRAEL_CITIES[heKey]) return HEBREW_ISRAEL_CITIES[heKey];
   if (YEMEN_PLACES[heKey]) return YEMEN_PLACES[heKey];
   if (YEMEN_PLACES[n]) return YEMEN_PLACES[n];
@@ -414,8 +425,11 @@ const rankHits = (query: string, hits: Hit[]): Hit | null => {
         const labelL = h.label.toLowerCase();
         if (country.names.some(n => labelL.includes(n.toLowerCase()))) score += 0.25;
       } else if (queryHasHebrew && hitInIsraelArea) {
-        // Hebrew query with no explicit foreign country → prefer Israel-area results
-        score += 0.35;
+        // Hebrew query with no explicit foreign country → prefer Israel-area results,
+        // unless the query clearly names a known non-Israel historical place (e.g. בלזץ).
+        const nonIsraelHint = /בלזץ|belzec|bełżec|אושוויץ|auschwitz|פשיסחא|przysucha|שקלוב|shklov/i.test(query);
+        if (!nonIsraelHint) score += 0.35;
+        else if (hitInIsraelArea) score -= 0.5;
       }
 
       // Softened street penalty (was -0.85)
